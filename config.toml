@@ -1,0 +1,657 @@
+# RainbowTerm Configuration
+# Context-aware terminal colorizer
+
+# Default profile to use when none is specified
+default_profile = "juniper"
+
+# =============================================================================
+# COLOR PALETTE
+# =============================================================================
+[palette]
+# Reds
+red-bright = "#ff0000"
+red-dark = "#cc0000"
+
+# Greens
+green-bright = "#00ff00"
+green-lime = "#00ff7f"
+green-emerald = "#50c878"
+green-forest = "#228b22"
+
+# Yellows/Oranges
+yellow-bright = "#ffff00"
+yellow-gold = "#ffd700"
+orange-bright = "#ff8c00"
+orange-coral = "#ff7f50"
+
+# Cyans/Blues
+cyan-bright = "#00ffff"
+cyan-aqua = "#00ced1"
+blue-bright = "#0080ff"
+
+# Purples
+purple-bright = "#d946ef"
+magenta-bright = "#ff00ff"
+
+# Grays
+gray-light = "#b0b0b0"
+gray-medium = "#808080"
+gray-dark = "#5f5f5f"
+
+# Semantic colors
+status-critical = "#ff0000"
+status-error = "#dc143c"
+status-warning = "#ff6600"
+status-ok = "#228b22"
+status-good = "#50c878"
+status-excellent = "#00ff00"
+
+# Interface speed colors
+iface-ultra = "#00ff00"      # 100G+
+iface-high = "#00ff7f"       # 10G
+iface-medium = "#00ced1"     # 2.5G
+iface-standard = "#ff7f50"   # 1G
+iface-low = "#ffbf00"        # <1G
+
+# Magnitude spectrum colors (rainbow progression for large numbers)
+mag-orange = "#ff8c00"       # Trillions+ (leftmost digits)
+mag-yellow = "#ffff00"       # Billions
+mag-green = "#00ff7f"        # Millions
+mag-blue = "#00bfff"         # Thousands
+mag-purple = "#d946ef"       # Hundreds (rightmost 3 digits, 1-999)
+
+# =============================================================================
+# BASE PROFILE - Common patterns for all vendors
+# =============================================================================
+[profiles.base]
+description = "Universal patterns: IPs, MACs, dates, generic status"
+
+# IPv4 addresses (simplified without lookbehind)
+[[profiles.base.patterns]]
+description = "IPv4 addresses"
+regex = '''\b(?:(?:25[0-5]|2[0-4]\d|[0-1]?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|[0-1]?\d?\d)(?:/\d+)?\b'''
+color = "green-emerald"
+priority = 50
+exclusive = false
+case_insensitive = false
+
+# MAC addresses (simplified without lookbehind/lookahead)
+[[profiles.base.patterns]]
+description = "MAC addresses (colon format)"
+regex = '''\b(?:[\da-fA-F]{1,2}:){5}[\da-fA-F]{1,2}\b'''
+color = "orange-coral"
+priority = 50
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "MAC addresses (dot format)"
+regex = '''\b(?:[\da-fA-F]{4}\.){2}[\da-fA-F]{4}\b'''
+color = "orange-coral"
+priority = 50
+exclusive = false
+
+# Priority 1: Critical Operational Keywords
+[[profiles.base.patterns]]
+description = "Error keywords"
+regex = '''(?i)\b(error|failed|failure|fail)\b'''
+color = "status-critical"
+priority = 200
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Warning prefix"
+regex = '''(?i)^(warning:)'''
+color = "status-warning"
+priority = 200
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Warning keywords"
+regex = '''(?i)\b(warning|threshold|exceeded)\b'''
+color = "status-warning"
+priority = 200
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "No alarms (good status)"
+regex = '''(No alarms currently active)'''
+color = "status-good"
+priority = 210
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Success messages"
+regex = '''(?i)\b(load complete|commit complete|configuration check succeeds)\b'''
+color = "status-good"
+priority = 200
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Configuration mode entry/exit"
+regex = '''(Entering configuration mode|Exiting configuration mode)'''
+color = "cyan-bright"
+priority = 180
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Diff additions (lines starting with +)"
+regex = '''^(\+\s+.+)$'''
+color = "status-good"
+priority = 190
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Diff deletions (lines starting with -)"
+regex = '''^(-\s+.+)$'''
+color = "status-critical"
+priority = 190
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Diff modifications (lines starting with !)"
+regex = '''^(!\s+.+)$'''
+color = "yellow-gold"
+priority = 190
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Alarm severity - Critical/Major"
+regex = '''\b(Critical|Major)\b'''
+color = "status-critical"
+priority = 210
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Alarm severity - Minor"
+regex = '''\b(Minor)\b'''
+color = "status-warning"
+priority = 210
+exclusive = false
+
+# Priority 2: Link and Device States
+[[profiles.base.patterns]]
+description = "Physical link is Up"
+regex = '''Physical link is (Up)\b'''
+color = "status-excellent"
+priority = 150
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Physical link is Down"
+regex = '''Physical link is (Down)\b'''
+color = "status-critical"
+priority = 150
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Device flags - Running"
+regex = '''\b(Running)\b'''
+color = "status-good"
+priority = 140
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Device flags - Hardware-Down"
+regex = '''\b(Hardware-Down)\b'''
+color = "status-critical"
+priority = 140
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Enabled status"
+regex = '''\b(Enabled)\b'''
+color = "status-good"
+priority = 130
+exclusive = false
+
+# Priority 3: Traffic indicators
+[[profiles.base.patterns]]
+description = "Non-zero traffic rate - bps and pps (active)"
+regex = '''\b([1-9]\d*) (bps|pps)'''
+color = "status-good"
+priority = 100
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Zero traffic rate - bps and pps (idle)"
+regex = '''\b(0) (bps|pps)'''
+color = "gray-medium"
+priority = 100
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Non-zero packet counters (active)"
+regex = '''(?:Input packets|Output packets)\s*:\s*([1-9]\d*)'''
+color = "status-good"
+priority = 95
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Zero packet counters (idle)"
+regex = '''(?:Input packets|Output packets)\s*:\s*(0)\b'''
+color = "gray-medium"
+priority = 95
+exclusive = false
+
+# Priority 4: Serial numbers and hardware IDs
+[[profiles.base.patterns]]
+description = "Serial numbers (alphanumeric)"
+regex = '''\b([A-Z]{2}\d{10})\b'''
+color = "yellow-gold"
+priority = 90
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Model numbers"
+regex = '''\b(EX\d{4}-[A-Z0-9\-]+|MX\d{3,4}|QFX\d{4}|SRX\d{3,4})\b'''
+color = "cyan-aqua"
+priority = 90
+exclusive = false
+
+# Priority 5: Configuration keywords
+[[profiles.base.patterns]]
+description = "Set commands in configuration"
+regex = '''^\s*(set)\s'''
+color = "purple-bright"
+priority = 80
+exclusive = false
+
+[[profiles.base.patterns]]
+description = "Description labels"
+regex = '''^\s+Description:\s+(.+)$'''
+color = "cyan-aqua"
+priority = 70
+exclusive = false
+
+# Generic Up status
+[[profiles.base.patterns]]
+description = "Generic 'up' status words"
+regex = '''\b(up|Up|UP|online|Online|ONLINE)\b'''
+color = "status-excellent"
+priority = 10
+exclusive = false
+case_insensitive = false
+
+# Generic Down status
+[[profiles.base.patterns]]
+description = "Generic 'down' status words"
+regex = '''\b(down|Down|DOWN|offline|Offline|OFFLINE)\b'''
+color = "status-critical"
+priority = 10
+exclusive = false
+case_insensitive = false
+
+# =============================================================================
+# JUNIPER PROFILE
+# =============================================================================
+[profiles.juniper]
+description = "Juniper JunOS devices (MX, EX, QFX, SRX series)"
+inherits = ["base"]
+
+# Auto-detection patterns (optional, used with --auto-detect)
+[[profiles.juniper.auto_detect]]
+type = "hostname"
+pattern = "^(jr|js)"
+
+[[profiles.juniper.auto_detect]]
+type = "prompt"
+pattern = '''\w+@[\w\-]+[>#]'''
+
+# Interface patterns by speed
+[[profiles.juniper.patterns]]
+description = "Ultra-high-speed interfaces (100G+)"
+regex = '''(?i)\b(?:et|fte)-\d+(?:/\d+){0,2}(?:\.\d+)?\b'''
+color = "iface-ultra"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "High-speed interfaces (10G)"
+regex = '''(?i)\b(?:xe)-\d+(?:/\d+){0,2}(?:\.\d+)?\b'''
+color = "iface-high"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Medium-speed interfaces (2.5G)"
+regex = '''(?i)\b(?:mge)-\d+(?:/\d+){0,2}(?:\.\d+)?\b'''
+color = "iface-medium"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Standard interfaces (1G)"
+regex = '''(?i)\b(?:ge)-\d+(?:/\d+){0,2}(?:\.\d+)?\b'''
+color = "iface-standard"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Low-speed interfaces (<1G)"
+regex = '''(?i)\b(?:fe)-\d+(?:/\d+){0,2}(?:\.\d+)?\b'''
+color = "iface-low"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Virtual Chassis Port interfaces"
+regex = '''(?i)\b(?:vcp)-\d+(?:/\d+){0,2}(?:\.\d+)?\b'''
+color = "cyan-aqua"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Logical/virtual interfaces"
+regex = '''(?i)\b(?:lo|irb|vlan|pfe|pfh|fxp|me|em|ae|reth|bme|jsrv)(?:-?\d+(?:/\d+)*)?(?:\.\d+)?\b'''
+color = "purple-bright"
+priority = 100
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Special service interfaces"
+regex = '''(?i)\b(?:cbp|dsc|esi|fti|gre|ipip|lsi|mtun|pimd|pime|pip|tap|vme|vtep)(?:\d+)?(?:\.\d+)?\b'''
+color = "cyan-aqua"
+priority = 100
+exclusive = true
+
+# =============================================================================
+# MAGNITUDE SPECTRUM - Rainbow coloring for large numbers
+# =============================================================================
+
+# Zero values (special case - grayed out)
+[[profiles.juniper.patterns]]
+description = "Zero packet/rate counters"
+regex = '''(?:Input packets|Output packets|Input rate|Output rate)\s*:\s+(0)\b'''
+color = "gray-medium"
+priority = 160
+exclusive = false
+
+# Trillions (13-15 digits): orange → yellow → green → blue → purple
+[[profiles.juniper.patterns]]
+description = "Trillions range (13-15 digits)"
+regex = '''(?:Input packets|Output packets|Input rate|Output rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "mag-orange", "2" = "mag-yellow", "3" = "mag-green", "4" = "mag-blue", "5" = "mag-purple" }
+priority = 155
+exclusive = true
+
+# Billions (10-12 digits): yellow → green → blue → purple
+[[profiles.juniper.patterns]]
+description = "Billions range (10-12 digits)"
+regex = '''(?:Input packets|Output packets|Input rate|Output rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "mag-yellow", "2" = "mag-green", "3" = "mag-blue", "4" = "mag-purple" }
+priority = 154
+exclusive = true
+
+# Millions (7-9 digits): green → blue → purple
+[[profiles.juniper.patterns]]
+description = "Millions range (7-9 digits)"
+regex = '''(?:Input packets|Output packets|Input rate|Output rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})\b'''
+color = { "1" = "mag-green", "2" = "mag-blue", "3" = "mag-purple" }
+priority = 153
+exclusive = true
+
+# Thousands (4-6 digits): blue → purple
+[[profiles.juniper.patterns]]
+description = "Thousands range (4-6 digits)"
+regex = '''(?:Input packets|Output packets|Input rate|Output rate)\s*:\s+(\d{1,3})(\d{3})\b'''
+color = { "1" = "mag-blue", "2" = "mag-purple" }
+priority = 152
+exclusive = true
+
+# Hundreds (1-3 digits): purple only
+[[profiles.juniper.patterns]]
+description = "Hundreds range (1-3 digits)"
+regex = '''(?:Input packets|Output packets|Input rate|Output rate)\s*:\s+(\d{1,3})\b'''
+color = "mag-purple"
+priority = 151
+exclusive = true
+
+# Speed patterns
+[[profiles.juniper.patterns]]
+description = "100G+ speeds"
+regex = '''(?i)\b(100|200|400|800)(Gbps)\b'''
+color = "iface-ultra"
+priority = 80
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "10G speeds"
+regex = '''(?i)\b(10)(Gbps|gbps)\b'''
+color = "iface-high"
+priority = 80
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "1G speeds"
+regex = '''(?i)\b(1)(Gbps|gbps)\b'''
+color = "iface-standard"
+priority = 80
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "10G in mbps"
+regex = '''(?i)\b(10000)(mbps)\b'''
+color = "iface-high"
+priority = 80
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "1G in mbps"
+regex = '''(?i)\b(1000)(mbps)\b'''
+color = "iface-standard"
+priority = 80
+exclusive = true
+
+# BGP States
+[[profiles.juniper.patterns]]
+description = "BGP Established state"
+regex = '''\b(Established)\b'''
+color = "status-excellent"
+priority = 90
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "BGP Idle state"
+regex = '''\b(Idle)\b'''
+color = "status-critical"
+priority = 90
+exclusive = true
+
+# OSPF States
+[[profiles.juniper.patterns]]
+description = "OSPF Full state"
+regex = '''\b(Full)\b'''
+color = "status-excellent"
+priority = 90
+exclusive = false
+
+# Spanning Tree Protocol (STP) States
+[[profiles.juniper.patterns]]
+description = "STP Forwarding state"
+regex = '''\b(FWD)\b'''
+color = "status-excellent"
+priority = 90
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Blocking state"
+regex = '''\b(BLK)\b'''
+color = "status-warning"
+priority = 90
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Designated role"
+regex = '''\b(DESG)\b'''
+color = "cyan-bright"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Disabled/Discarding role"
+regex = '''\b(DIS)\b'''
+color = "gray-medium"
+priority = 85
+exclusive = false
+
+# STP Port Costs (lower = better path)
+[[profiles.juniper.patterns]]
+description = "STP Cost - Excellent (1000-2000, typically 10G+)"
+regex = '''\b([12]000)\b'''
+color = "status-excellent"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Cost - Good (5000, typically 2.5G)"
+regex = '''\b(5000)\b'''
+color = "status-good"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Cost - Standard (20000, typically 1G)"
+regex = '''\b(20000)\b'''
+color = "orange-bright"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Cost - Poor (200000+, 100M or slower)"
+regex = '''\b(200000|2000000|[1-9]\d{7,})\b'''
+color = "status-critical"
+priority = 85
+exclusive = false
+
+# Routing table markers
+[[profiles.juniper.patterns]]
+description = "Active route marker"
+regex = '''(\*)\['''
+color = "status-good"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Best route next-hop marker"
+regex = '''^\s+(>)\s+(?:to|via)'''
+color = "status-good"
+priority = 85
+exclusive = false
+
+# Log message patterns
+[[profiles.juniper.patterns]]
+description = "Log severity - Critical/Emergency"
+regex = '''(%\w+-[0-3]-\w+):'''
+color = "status-critical"
+priority = 100
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Log severity - Warning"
+regex = '''(%\w+-[4-4]-\w+):'''
+color = "status-warning"
+priority = 100
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Log severity - Notice/Info"
+regex = '''(%\w+-[5-7]-\w+):'''
+color = "cyan-bright"
+priority = 100
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Repeated log messages"
+regex = '''(last message repeated \d+ times?)'''
+color = "gray-medium"
+priority = 95
+exclusive = false
+
+# Juniper-specific operational patterns
+[[profiles.juniper.patterns]]
+description = "JUNOS version strings"
+regex = '''\b(JUNOS [^\s]+|Junos: \S+)'''
+color = "cyan-bright"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Router ID"
+regex = '''Router ID: (\d+\.\d+\.\d+\.\d+)'''
+color = "green-emerald"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "No active alarms/defects (good)"
+regex = '''(?:Active alarms|Active defects)\s+:\s+(None)\b'''
+color = "status-good"
+priority = 155
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Active alarms keyword"
+regex = '''Active alarms\s+:\s+(\w+)'''
+color = "status-warning"
+priority = 150
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Active defects keyword"
+regex = '''Active defects\s+:\s+(\w+)'''
+color = "status-warning"
+priority = 150
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Interface present/running"
+regex = '''\b(Present)\b'''
+color = "status-good"
+priority = 135
+exclusive = false
+
+# =============================================================================
+# CONTEXT-AWARE RULES - Juniper Interface Blocks
+# =============================================================================
+[[profiles.juniper.contexts]]
+name = "interface_block"
+description = "Track interface state for context-aware coloring"
+start = '''(?i)^Physical interface:\s+([a-z0-9\-/\.]+)'''
+
+# State variables to track
+[[profiles.juniper.contexts.track]]
+name = "physical_link"
+pattern = '''(?i)Physical link is\s+(Up|Down)'''
+capture_group = 1
+
+[[profiles.juniper.contexts.track]]
+name = "admin_status"
+pattern = '''(?i)Device flags\s*:\s*.*?\s+(Up|Down)\b'''
+capture_group = 1
+
+# Context-aware rules
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Half-Duplex'''
+state_key = "physical_link"
+priority = 200
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-critical"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "gray-medium"
+
+default_color = "gray-medium"
+
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Full-Duplex'''
+priority = 200
+
+# No state_key means always apply the first color
+[[profiles.juniper.contexts.rules.colors]]
+value = "always"
+color = "status-good"
+
+default_color = "status-good"
