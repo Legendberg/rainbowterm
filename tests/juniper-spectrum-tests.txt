@@ -1,0 +1,75 @@
+# =============================================================================
+# RainbowTerm Juniper Test Suite
+# Comprehensive test cases for spectrum coloring patterns
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. NEUTRAL vs ERROR SPECTRUM COMPARISON
+# Same magnitudes, different semantic meaning, different colors
+# -----------------------------------------------------------------------------
+
+Physical interface: ge-0/0/0, Enabled, Physical link is Up
+  
+  Traffic statistics (NEUTRAL - informational magnitude spectrum):
+   Input  bytes  :              1298458                    0 bps
+   Output bytes  :            909181029                32112 bps
+   Input  packets:                14362                    0 pps
+   Output packets:              1750520                    8 pps
+  
+  Input errors (ERROR - severity-based spectrum, same magnitudes as traffic):
+    Errors: 1298458, Drops: 909181029, Framing errors: 14362, Runts: 1750520
+  Output errors:
+    Carrier transitions: 7, Errors: 0, Drops: 0, Collisions: 724, MTU errors: 15420
+
+# -----------------------------------------------------------------------------
+# 2. QUEUE COUNTERS - Mixed neutral and error spectrum in same table
+# Left columns: neutral spectrum (traffic volume)
+# Right column: error spectrum (dropped packets = problems)
+# -----------------------------------------------------------------------------
+
+  Queue counters:       Queued packets  Transmitted packets      Dropped packets
+    0                          1644910              1644910                  724
+    1                         14362000             14362000              1750520
+    2                       1298458000           1298458000            909181029
+    3                                0                    0                    0
+
+# -----------------------------------------------------------------------------
+# 3. ERROR SEVERITY LADDER - Complete range from minor to catastrophic
+# -----------------------------------------------------------------------------
+
+  More error examples showing full severity range:
+    Minor (hundreds):      Errors: 156, Drops: 724
+    Moderate (thousands):  Errors: 1250, Drops: 5123
+    Serious (ten K):       Errors: 15420, Drops: 28950
+    Severe (hundred K):    Errors: 125000, Drops: 384000
+    Critical (millions):   Errors: 1542000, Drops: 9123456
+    Extreme (billions):    Errors: 1234567890, Drops: 9876543210
+    Catastrophic (trill):  Errors: 123456789012, FIFO errors: 555555555555
+
+# -----------------------------------------------------------------------------
+# 4. HUGE TRAFFIC - Testing trillions range for neutral spectrum
+# Real-world example: long-running interface with TB of traffic
+# -----------------------------------------------------------------------------
+
+Physical interface: ge-0/0/1, Enabled, Physical link is Up
+  Traffic statistics:
+   Input  bytes  :        2342779625172              3239016 bps
+   Output bytes  :          99161990956              2926344 bps
+   Input  packets:           1587177962                  429 pps
+   Output packets:            211253631                  442 pps
+
+# -----------------------------------------------------------------------------
+# 5. ZERO STATE COLORING - Context determines color
+# Gray for idle/neutral, Green for healthy (no errors)
+# -----------------------------------------------------------------------------
+
+  Input errors (zeros should be GREEN - healthy state):
+    Errors: 0, Drops: 0, Framing errors: 0, Runts: 0, Giants: 0
+  Output errors (zeros should be GREEN - healthy state):
+    Carrier transitions: 5, Errors: 0, Drops: 0, Collisions: 0, MTU errors: 0
+  
+  Traffic statistics (zeros should be GRAY - idle/no traffic):
+   Input  bytes  :                    0                    0 bps
+   Output bytes  :                    0                    0 bps
+   Input  packets:                    0                    0 pps
+   Output packets:                    0                    0 pps

@@ -1,0 +1,227 @@
+================================================================================
+CISCO IOS/IOS-XE/NX-OS TEST OUTPUT
+Models: Catalyst, Nexus, ASR, ISR series
+================================================================================
+
+Router#show ip interface brief
+Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0/0   192.168.1.1     YES NVRAM  up                    up
+GigabitEthernet0/0/1   10.0.0.1        YES NVRAM  down                  down
+GigabitEthernet0/0/2   unassigned      YES NVRAM  administratively down down
+TenGigabitEthernet0/1/0 172.16.0.1     YES NVRAM  up                    up
+FastEthernet0/1        10.10.0.1       YES NVRAM  up                    up
+Port-channel1          10.255.0.1      YES NVRAM  up                    up
+Vlan100                192.168.100.1   YES NVRAM  up                    up
+Loopback0              1.1.1.1         YES NVRAM  up                    up
+
+Router#show interfaces GigabitEthernet0/0/0
+GigabitEthernet0/0/0 is up, line protocol is up
+  Hardware is Gigabit Ethernet, address is aabb.cc00.0100 (bia aabb.cc00.0100)
+  Description: Uplink to Core Switch
+  Internet address is 192.168.1.1/24
+  MTU 1500 bytes, BW 1000000 Kbit/sec, DLY 10 usec,
+     reliability 255/255, txload 1/255, rxload 1/255
+  Encapsulation ARPA, loopback not set
+  Keepalive set (10 sec)
+  Full-duplex, 1000Mb/s, media type is RJ45
+  output flow-control is unsupported, input flow-control is unsupported
+  ARP type: ARPA, ARP Timeout 04:00:00
+  Last input 00:00:01, output 00:00:00, output hang never
+  Last clearing of "show interface" counters never
+  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0
+  Queueing strategy: fifo
+  Output queue: 0/40 (size/max)
+  5 minute input rate 1234567890 bits/sec, 1234567 packets/sec
+  5 minute output rate 987654321 bits/sec, 987654 packets/sec
+     1234567890123 packets input, 9876543210987654321 bytes, 0 no buffer
+     Received 42 broadcasts (0 IP multicasts)
+     0 runts, 0 giants, 0 throttles
+     0 input errors, 0 CRC, 0 frame, 0 overrun, 0 ignored
+     0 watchdog, 1000 multicast, 0 pause input
+     987654321098 packets output, 123456789012345 bytes, 0 underruns
+     0 output errors, 0 collisions, 1 interface resets
+     0 unknown protocol drops
+     0 babbles, 0 late collision, 0 deferred
+     0 lost carrier, 0 no carrier, 0 pause output
+     0 output buffer failures, 0 output buffers swapped out
+
+Router#show interfaces FastEthernet0/1
+FastEthernet0/1 is down, line protocol is down
+  Hardware is Fast Ethernet, address is aabb.cc00.0200 (bia aabb.cc00.0200)
+  MTU 1500 bytes, BW 100000 Kbit/sec, DLY 100 usec,
+     reliability 255/255, txload 1/255, rxload 1/255
+  Encapsulation ARPA, loopback not set
+  Keepalive set (10 sec)
+  Half-duplex, 100Mb/s, media type is RJ45
+  ARP type: ARPA, ARP Timeout 04:00:00
+  Last input never, output never, output hang never
+  Input queue: 0/75/0/0 (size/max/drops/flushes); Total output drops: 0
+  Queueing strategy: fifo
+  Output queue: 0/40 (size/max)
+  5 minute input rate 0 bits/sec, 0 packets/sec
+  5 minute output rate 0 bits/sec, 0 packets/sec
+     0 packets input, 0 bytes, 0 no buffer
+     0 packets output, 0 bytes, 0 underruns
+
+Router#show ip bgp summary
+BGP router identifier 1.1.1.1, local AS number 65000
+BGP table version is 45, main routing table version 45
+524288 network entries using 67108864 bytes of memory
+1048576 path entries using 125829120 bytes of memory
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+10.0.0.2        4        65001  123456  123456       45    0    0 02:15:23     512000
+192.168.1.2     4        65002       0       0        0    0    0 never    Idle
+172.16.0.2      4        65003   98765   98765       45    0    0 15:42:11     712000
+10.255.0.2      4        65001       5      10        1    0    0 00:14:55 Active
+203.0.113.1     4        65004   45678   45678       45    0    0 3d02h    Establ (OpenConfirm)
+
+Router#show ip ospf neighbor
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+2.2.2.2           1   FULL/DR         00:00:38    192.168.1.2     GigabitEthernet0/0/0
+3.3.3.3         128   DOWN/DROTHER    00:00:00    10.0.0.2        GigabitEthernet0/0/1
+4.4.4.4         128   FULL/BDR        00:00:35    172.16.0.2      TenGigabitEthernet0/1/0
+5.5.5.5           1   2WAY/DROTHER    00:00:40    10.255.0.2      Port-channel1
+6.6.6.6           1   INIT/-          00:00:32    192.168.100.2   Vlan100
+
+Router#show spanning-tree
+VLAN0001
+  Spanning tree enabled protocol ieee
+  Root ID    Priority    8192
+             Address     aabb.cc00.0100
+             This bridge is the root
+             Hello Time   2 sec  Max Age 20 sec  Forward Delay 15 sec
+
+  Bridge ID  Priority    32769  (priority 32768 sys-id-ext 1)
+             Address     aabb.cc00.0100
+             Hello Time   2 sec  Max Age 20 sec  Forward Delay 15 sec
+             Aging Time  300 sec
+
+Interface           Role Sts Cost      Prio.Nbr Type
+------------------- ---- --- --------- -------- --------------------------------
+Gi0/0/0             Desg FWD 4         128.1    P2p
+Gi0/0/1             Desg BLK 4         128.2    P2p
+Te0/1/0             Root FWD 2         128.3    P2p
+Fa0/1               Desg FWD 19        128.4    P2p
+
+Router#show vlan brief
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -------------------------------
+1    default                          active    Gi0/0/10, Gi0/0/11, Gi0/0/12
+10   Engineering                      active    Gi0/0/1, Gi0/0/2
+100  Management                        active    Gi0/0/5, Gi0/0/6
+200  Guest                            suspended Gi0/0/20
+999  Unused                           act/unsup
+
+Router#show vtp status
+VTP Version capable             : 1 to 3
+VTP version running             : 1
+VTP Domain Name                 : PRODUCTION
+VTP Pruning Mode                : Disabled
+VTP Traps Generation            : Disabled
+Device ID                       : aabb.cc00.0100
+Configuration last modified by 192.168.1.100 at 12-11-24 10:15:23
+Local updater ID is 192.168.1.1 on interface Vl100 (lowest numbered VLAN interface found)
+
+Feature VLAN:
+--------------
+VTP Operating Mode                : Server
+Maximum VLANs supported locally   : 1005
+Number of existing VLANs          : 50
+Configuration Revision            : 25
+MD5 digest                        : 0x12 0x34 0x56 0x78 0x9A 0xBC 0xDE 0xF0
+
+Router#show interfaces trunk
+Port        Mode             Encapsulation  Status        Native vlan
+Gi0/0/1     on               802.1q         trunking      1
+Gi0/0/2     desirable        negotiate      trunking      1
+Te0/1/0     auto             dot1q          trunking      100
+Po1         on               isl            not-trunking  1
+
+Port        Vlans allowed on trunk
+Gi0/0/1     1-4094
+Gi0/0/2     1,10,100,200
+Te0/1/0     100-200
+Po1         1-1005
+
+Router#show etherchannel summary
+Flags:  D - down        P - bundled in port-channel
+        I - stand-alone s - suspended
+        H - Hot-standby (LACP only)
+        R - Layer3      S - Layer2
+        U - in use      N - not in use, no aggregation
+        f - failed to allocate aggregator
+
+Number of channel-groups in use: 2
+Number of aggregators:           2
+
+Group  Port-channel  Protocol    Ports
+------+-------------+-----------+-----------------------------------------------
+1      Po1(SU)         LACP      Gi0/0/3(P)    Gi0/0/4(P)    
+2      Po2(SD)         PAgP      Gi0/0/5(D)    Gi0/0/6(D)    
+
+Router#show logging | include ERROR|WARNING|CRITICAL
+Dec 11 10:15:23.456: %BGP-5-ADJCHANGE: neighbor 192.168.1.2 Down BGP Notification sent
+Dec 11 10:16:45.789: %OSPF-5-ADJCHG: Process 1, Nbr 3.3.3.3 on GigabitEthernet0/0/1 from FULL to DOWN, Neighbor Down: Dead timer expired
+Dec 11 10:18:32.123: %LINK-3-UPDOWN: Interface GigabitEthernet0/0/1, changed state to down
+Dec 11 10:18:33.124: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/0/1, changed state to down
+Dec 11 10:20:15.456: %BGP-5-ADJCHANGE: neighbor 10.0.0.2 Up
+Dec 11 10:22:00.789: %SYS-3-CPUHOG: Task is running for (2001)msecs, more than (2000)msecs
+Dec 11 10:23:11.111: %SYS-5-CONFIG_I: Configured from console by admin on vty0 (192.168.1.100)
+Dec 11 10:25:08.222: %PLATFORM-2-FRU_PS_SIGNAL: FRU 0: Power Supply 1 CRITICAL - output low warning
+Dec 11 10:27:30.333: %SPANTREE-7-BLOCK_PORT_TYPE: Blocking Gi0/0/1 on VLAN0001. Inconsistent port type
+Dec 11 10:29:18.444: %PARSER-4-BADCFG: Unexpected end of configuration file.
+Dec 11 10:30:00.555: %PLATFORM-5-FRU_OK: FRU 0: Power Supply 1 OK
+
+Router#show version
+Cisco IOS XE Software, Version 17.09.04a
+Cisco IOS Software [Gibraltar], Catalyst L3 Switch Software (CAT9K_IOSXE), Version 17.9.4a, RELEASE SOFTWARE (fc3)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2024 by Cisco Systems, Inc.
+Compiled Wed 20-Nov-24 12:34 by mcpre
+
+ROM: IOS-XE ROMMON
+BOOTLDR: CAT9K Boot Loader (CAT9K-BOOTLD) Version 17.9.4a[FC3], RELEASE SOFTWARE (P)
+
+Router uptime is 3 weeks, 6 days, 2 hours, 6 minutes
+Uptime for this control processor is 3 weeks, 6 days, 2 hours, 8 minutes
+System returned to ROM by Reload Command at 09:23:17 PST Wed Nov 15 2024
+System image file is "flash:cat9k-universalk9.17.09.04a.SPA.bin"
+Last reload reason: Reload Command
+
+cisco Catalyst 9300 (X86) processor with 1234567K/6147K bytes of memory.
+Processor board ID FOC1234ABCD
+2048K bytes of non-volatile configuration memory.
+16777216K bytes of physical memory.
+1638400K bytes of Crash Files at crashinfo:.
+11264000K bytes of Flash at flash:.
+
+Configuration register is 0x2102
+
+Router#show ip route bgp | begin Gateway
+Gateway of last resort is 10.0.0.2 to network 0.0.0.0
+
+B*    0.0.0.0/0 [20/0] via 10.0.0.2, 02:15:23
+      8.0.0.0/8 is variably subnetted, 5 subnets, 2 masks
+B        8.8.8.8/32 [20/100] via 192.168.1.2, 15:42:11
+      10.0.0.0/8 is variably subnetted, 10 subnets, 3 masks
+B        10.10.0.0/16 [20/200] via 172.16.0.2, 3d02h
+
+Router#show cdp neighbors detail
+Device ID: Switch01
+Entry address(es):
+  IP address: 192.168.1.2
+Platform: cisco WS-C3850-24P,  Capabilities: Switch IGMP
+Interface: GigabitEthernet0/0/0,  Port ID (outgoing port): GigabitEthernet1/0/1
+Holdtime : 165 sec
+
+Version :
+Cisco IOS Software, C3850 Software (C3850-UNIVERSALK9-M), Version 16.12.08, RELEASE SOFTWARE (fc1)
+
+advertisement version: 2
+Protocol Hello:  OUI=0x00000C, Protocol ID=0x0112; payload len=27, value=00000000FFFFFFFF010221FF000000000000001122334455FF
+VTP Management Domain: 'PRODUCTION'
+Native VLAN: 1
+Duplex: full
+Management address(es):
+  IP address: 192.168.1.2

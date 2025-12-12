@@ -75,26 +75,30 @@ fn main() -> anyhow::Result<()> {
 
     // Load configuration
     let config_path = cli.config.clone().unwrap_or_else(|| {
-        let mut path = dirs::home_dir().expect("Could not find home directory");
-        path.push(".rainbowterm.toml");
+        let mut path = dirs::config_dir().expect("Could not find config directory");
+        path.push("rainbowterm");
+        std::fs::create_dir_all(&path).ok();
+        path.push("config.toml");
         path
     });
 
-    // Try to load config, or use default if file doesn't exist
+    // Embedded default config
+    const DEFAULT_CONFIG: &str = include_str!("../config.toml");
+
+    // Create config file on first run if it doesn't exist
+    if !config_path.exists() && cli.config.is_none() {
+        if let Some(parent) = config_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&config_path, DEFAULT_CONFIG)?;
+        eprintln!("Created default config at {}", config_path.display());
+    }
+
+    // Load config from file or use embedded default
     let config = if config_path.exists() {
         Config::from_file(&config_path)?
-    } else if cli.profile.is_some() || cli.list_profiles {
-        // Config file required if --profile or --list-profiles is used
-        anyhow::bail!(
-            "Configuration file not found: {}\nCreate one with example: rainbowterm --help",
-            config_path.display()
-        );
     } else {
-        // No config file and no profile specified - use built-in demo mode
-        eprintln!("Warning: No config file found at {}", config_path.display());
-        eprintln!("Running in demo mode with basic patterns.");
-        eprintln!("Create ~/.rainbowterm.toml for full functionality.");
-        return run_demo_mode(cli.no_color);
+        Config::from_str(DEFAULT_CONFIG)?
     };
 
     // Handle --list-profiles
@@ -130,6 +134,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 /// Demo mode with basic hardcoded patterns (no config file)
+#[allow(dead_code)]
 fn run_demo_mode(no_color: bool) -> anyhow::Result<()> {
     let color_choice = if no_color {
         ColorChoice::Never

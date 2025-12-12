@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-use crate::config::{Context, ContextRule, StateTracker};
+use crate::config::Context;
 
 /// Compiled context with pre-compiled regex patterns
 pub struct CompiledContext {

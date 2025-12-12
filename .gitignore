@@ -1,1 +1,6 @@
 /target
+tmp/
+.DS_Store
+
+# AI assistant context (project-specific, may contain local notes)
+claude.md

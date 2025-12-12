@@ -1,0 +1,227 @@
+================================================================================
+ARISTA EOS TEST OUTPUT  
+Models: 7050, 7280, 7500, 7800 series
+================================================================================
+
+switch>show interfaces status
+Port       Name               Status       Vlan     Duplex Speed  Type            Flags Encapsulation
+Et1        Uplink to Core     connected    1        full   10G    10GBASE-SR             
+Et2        Server Link        connected    trunk    full   25G    25GBASE-SR             dot1q
+Et3        Downlink           notconnect   100      auto   auto   Not Present            
+Et4                           disabled     1        auto   auto   Not Present            
+Et10       Management         connected    999      full   1G     1000BASE-T             
+Et25/1     Spine Connection   connected    trunk    full   100G   100GBASE-SR4           dot1q
+Et49/1     Peer Link          connected    trunk    full   40G    40GBASE-CR4            dot1q
+Ma1        Management1        connected    routed   full   1G     1000BASE-T             
+Po1        Port-Channel1      connected    trunk    full   200G   N/A                    dot1q
+Vlan100    SVI-Management     connected    routed   auto   auto   N/A                    
+
+switch>show interfaces Ethernet1
+Ethernet1 is up, line protocol is up (connected)
+  Hardware is Ethernet, address is 001c.7300.0001 (bia 001c.7300.0001)
+  Description: Uplink to Core
+  Ethernet MTU 9214 bytes, BW 10000000 Kbit
+  Full-duplex, 10Gb/s, auto negotiation: on, uni-link: n/a
+  Up 25 days, 3 hours, 15 minutes, 42 seconds
+  Loopback Mode : None
+  2 link status changes since last clear
+  Last clearing of "show interface" counters never
+  5 minutes input rate 1.23 Gbps (12.5% with framing overhead), 1234567 packets/sec
+  5 minutes output rate 987.65 Mbps (10.2% with framing overhead), 987654 packets/sec
+     1234567890123 packets input, 9876543210987654321 bytes
+     Received 42 broadcasts, 1000000 multicast
+     0 runts, 0 giants
+     0 input errors, 0 CRC, 0 alignment, 0 symbol, 0 input discards
+     0 PAUSE input
+     987654321098 packets output, 123456789012345 bytes
+     Sent 5000 broadcasts, 2000000 multicast
+     0 output errors, 0 collisions
+     0 late collision, 0 deferred, 0 output discards
+     0 PAUSE output
+
+switch>show interfaces Ethernet3
+Ethernet3 is down, line protocol is down (notconnect)
+  Hardware is Ethernet, address is 001c.7300.0003 (bia 001c.7300.0003)
+  Ethernet MTU 9214 bytes, BW 100000000 Kbit
+  Auto-duplex, Auto 100G, auto negotiation: on, uni-link: n/a
+  Down 2 days, 5 hours, 23 minutes, 11 seconds
+  Loopback Mode : None
+  Last clearing of "show interface" counters never
+  5 minutes input rate 0 bps (0.0% with framing overhead), 0 packets/sec
+  5 minutes output rate 0 bps (0.0% with framing overhead), 0 packets/sec
+     0 packets input, 0 bytes
+     0 input errors, 0 CRC, 0 alignment, 0 symbol, 0 input discards
+     0 packets output, 0 bytes
+     0 output errors, 0 collisions
+
+switch>show ip bgp summary
+BGP summary information for VRF default
+Router identifier 1.1.1.1, local AS number 65000
+Neighbor Status Codes: m - Under maintenance
+  Neighbor  V AS           MsgRcvd   MsgSent  InQ OutQ  Up/Down State   PfxRcd PfxAcc
+  10.0.0.2  4 65001         123456    123456    0    0 02:15:23 Estab   512000 512000
+  172.16.0.2 4 65003         98765     98765    0    0 15:42:11 Estab   712000 712000
+  192.168.1.2 4 65002            0         0    0    0    never Idle         0      0
+  10.255.0.2 4 65001             5        10    0    0 00:14:55 Active       0      0
+  203.0.113.1 4 65004        45678     45678    0    0  3d2h   Estab   250000 250000
+
+switch>show ip ospf neighbor
+Neighbor ID     VRF      Pri State                  Dead Time   Address         Interface
+2.2.2.2         default  128 FULL/DR                00:00:38    192.168.1.2     Ethernet1
+3.3.3.3         default  128 DOWN/DROTHER           00:00:00    10.0.0.2        Ethernet2
+4.4.4.4         default  128 FULL/BDR               00:00:35    172.16.0.2      Ethernet25/1
+5.5.5.5         default    1 2WAY/DROTHER           00:00:40    10.255.0.2      Port-Channel1
+6.6.6.6         default    1 INIT/-                 00:00:32    192.168.100.2   Vlan100
+
+switch>show spanning-tree
+MST0
+  Spanning tree enabled protocol mstp
+  Root ID    Priority    4096
+             Address     001c.7300.0001
+             This bridge is the root
+             Hello Time  2  sec  Max Age 20 sec  Forward Delay 15 sec
+
+  Bridge ID  Priority    4096   (priority 4096 sys-id-ext 0)
+             Address     001c.7300.0001
+             Hello Time  2  sec  Max Age 20 sec  Forward Delay 15 sec
+
+Interface        Role       State      Cost      Prio.Nbr Type
+---------------- ---------- ---------- --------- -------- --------------------
+Et1              Designated Forwarding 2000      128.1    P2P
+Et2              Designated Blocking    20000     128.2    P2P
+Et10             Designated Forwarding  20000     128.10   P2P Bound(PVST)
+Et25/1           Root       Forwarding  200       128.25   P2P
+Po1              Designated Forwarding  100       128.4096 P2P
+
+switch>show vlan
+VLAN  Name                             Status    Ports
+----- -------------------------------- --------- -------------------------------
+1     default                          active    Et3, Et4, Et5, Et6, Et7
+10    Engineering                      active    Et1, Et2
+100   Management                       active    Et10, Et11
+200   Guest                            suspended Et20
+999   Unused                           active    
+
+switch>show port-channel summary
+Flags:  D - Down        P - bundled in port-channel
+        I - stand-alone s - suspended
+        H - Hot-standby (LACP only)
+        R - Layer3      S - Layer2
+        U - in use      N - not in use, no aggregation
+        f - failed to allocate aggregator
+        M - not in use, no aggregation due to minimum links not met
+        u - unsuitable for bundling
+        d - default port
+
+Number of channel-groups in use: 2
+Number of aggregators:           2
+
+Group  Port-channel  Protocol    Ports
+------+-------------+-----------+-----------------------------------------------
+1      Po1(SU)       LACP        Et49/1(P) Et50/1(P) Et51/1(P) Et52/1(P)
+2      Po2(SD)       Static      Et53/1(D) Et54/1(D)
+
+switch>show lldp neighbors
+Last table change time   : 2:15:23 ago
+Number of table inserts  : 42
+Number of table deletes  : 5
+Number of table drops    : 0
+Number of table age-outs : 0
+
+Port          Neighbor Device ID           Neighbor Port ID    TTL
+---------- ---------------------------- ---------------------- ---
+Et1           Switch01                     Ethernet1/1         120
+Et2           Router01                     GigabitEthernet0/0  120
+Et25/1        Spine01                      Ethernet1/1         120
+Ma1           Management-Switch            GigabitEthernet1/0/1 120
+
+switch>show ip route bgp
+VRF: default
+
+ B        0.0.0.0/0 [20/0]
+           via 10.0.0.2, Ethernet1
+ B        8.8.8.8/32 [20/100]
+           via 192.168.1.2, Ethernet2
+ B        10.10.0.0/16 [20/200]
+           via 172.16.0.2, Ethernet25/1
+
+switch>show mlag
+MLAG Configuration:
+domain-id                          :                 mlag1
+local-interface                    :            Vlan4094
+peer-address                       :         10.255.0.2
+peer-link                          :     Port-Channel1
+peer-config                        :          consistent
+
+MLAG Status:
+state                              :              Active
+negotiation status                 :          Connected
+peer-link status                   :                  Up
+local-int status                   :                  Up
+
+MLAG Ports:
+Disabled                           :                   0
+Configured                         :                  10
+Inactive                           :                   2
+Active-partial                     :                   0
+Active-full                        :                   8
+
+switch>show system environment all
+System temperature status is: Ok
+Action on overheat: shutdown
+Overheat shut down delay: 2 seconds
+
+System cooling status is: Ok
+Ambient temperature: 23C
+Airflow: front-to-rear
+Config: optimized for cooling
+Number of fan trays: 4
+
+Fan Tray  Fan Status  Speed
+--------- ----------- -----
+1         Ok          50%
+2         Ok          50%
+3         Ok          45%
+4         Ok          55%
+
+Power Supply  Model      Input     State   Output
+------------- ---------- --------- ------- ------
+1             PWR-500AC  AC 120V   ok      500W
+2             PWR-500AC  AC 120V   ok      500W
+
+switch>show log | include ERROR|WARNING|CRITICAL
+Dec 11 10:15:23 switch Ebra: %BGP-5-ADJCHANGE: peer 192.168.1.2 (VRF default AS 65002) old state Established event RecvNotification new state Idle
+Dec 11 10:16:45 switch Ospf: %OSPF-5-ADJCHG: Neighbor 3.3.3.3 state change FULL -> DOWN on interface Ethernet2
+Dec 11 10:18:32 switch Stp: %SPANTREE-6-INTERFACE_DEL: Interface Ethernet2 has been removed from instance MST0
+Dec 11 10:18:32 switch Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface Ethernet2, changed state to down
+Dec 11 10:20:15 switch Ebra: %BGP-5-ADJCHANGE: peer 10.0.0.2 (VRF default AS 65001) old state Idle event RecvUpdate new state Established
+Dec 11 10:22:00 switch kernel: [1234567.890] CPU temperature above normal (82C)
+Dec 11 10:23:11 switch ConfigAgent: %SYS-5-CONFIG_SESSION_COMMIT: User admin committed configuration session (file: startup-config)
+Dec 11 10:25:08 switch PlatformPower: %PLATFORM-3-PS_LOW: Power supply 1 output voltage low
+Dec 11 10:27:30 switch Stp: %SPANTREE-7-BLOCK_PORT: Blocking Ethernet2 on MST0. Inconsistent port type
+Dec 11 10:29:18 switch ConfigAgent: %PARSER-4-PARSE_ERROR: syntax error parsing startup-config at line 342
+Dec 11 10:30:00 switch PlatformPower: %PLATFORM-5-PS_OK: Power supply 1 output voltage normal
+
+switch>show interfaces transceiver
+Port  Transceiver         Status           Temp      Voltage  Current  Tx Power  Rx Power
+----- ------------------- ---------------- --------- -------- -------- --------- ---------
+Et1   10G-SR              Connected        42.1 C    3.29 V   6.5 mA   -1.8 dBm  -1.4 dBm
+Et2   25G-SR              Connected        38.5 C    3.31 V   8.2 mA   -2.1 dBm  -2.5 dBm
+Et3   Not present          
+Et25/1 100G-SR4            Connected        45.2 C    3.28 V   220 mA   -1.2 dBm  -0.8 dBm
+Et49/1 40G-CR4             Connected        40.8 C    3.30 V   180 mA   N/A       N/A
+
+switch>show version
+Arista DCS-7280SR-48C6-F
+Hardware version: 11.00
+Serial number: JPE12345678
+System MAC address: 001c.7300.0001
+
+Software image version: 4.28.5M
+Architecture: x86_64
+Internal build version: 4.28.5M-29200611.42805M
+Internal build ID: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
+
+Uptime: 25 days, 3 hours, 15 minutes
+Total memory: 16384000 kB
+Free memory: 8192000 kB

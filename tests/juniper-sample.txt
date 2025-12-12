@@ -1,0 +1,150 @@
+================================================================================
+JUNIPER JUNOS TEST OUTPUT
+Models: MX, EX, QFX, SRX series
+================================================================================
+
+user@router> show interfaces terse
+Interface               Admin Link Proto    Local                 Remote
+ge-0/0/0                up    up
+ge-0/0/0.0              up    up   inet     192.168.1.1/24
+                                   inet6    2001:db8::1/64
+                                            fe80::1/64
+ge-0/0/1                up    down
+ge-0/0/1.0              up    down inet     10.0.0.1/30
+xe-0/1/0                up    up
+xe-0/1/0.0              up    up   inet     172.16.0.1/24
+et-0/0/0                up    up
+et-0/0/0.0              up    up   inet     100.64.0.1/31
+mge-0/0/0               up    up
+ae0                     up    up
+ae0.0                   up    up   inet     10.255.0.1/30
+ae1                     down  down
+lo0                     up    up
+lo0.0                   up    up   inet     1.1.1.1         --> 0/0
+irb                     up    up
+irb.100                 up    up   inet     192.168.100.1/24
+vcp-255/0/0             up    up
+
+user@router> show interfaces extensive ge-0/0/0
+Physical interface: ge-0/0/0, Enabled, Physical link is Up
+  Interface index: 148, SNMP ifIndex: 507
+  Link-level type: Ethernet, MTU: 1514, MRU: 1522, Speed: 1000mbps, BPDU Error: None
+  Device flags   : Present Running
+  Interface flags: SNMP-Traps Internal: 0x4000
+  Link flags     : None
+  CoS queues     : 8 supported, 8 maximum usable queues
+  Current address: 00:1f:12:34:56:78, Hardware address: 00:1f:12:34:56:78
+  Last flapped   : 2024-12-10 14:23:45 PST (00:23:15 ago)
+  Input rate     : 1234567890 bps (1234567 pps)
+  Output rate    : 987654321 bps (987654 pps)
+  Active alarms  : None
+  Active defects : None
+  Interface transmit statistics: Enabled
+  Logical interface ge-0/0/0.0 (Index 329) (SNMP ifIndex 508)
+    Flags: Up SNMP-Traps 0x4000 Encapsulation: ENET2
+    Input packets : 42
+    Output packets: 1234567890123
+    Input bytes   : 0
+    Output bytes  : 9876543210987654321
+
+user@router> show interfaces diagnostics optics ge-0/0/0
+Physical interface: ge-0/0/0
+    Laser bias current                        :  6.520 mA
+    Laser output power                        :  0.6620 mW / -1.79 dBm
+    Module temperature                        :  42 degrees C / 107 degrees F
+    Module voltage                            :  3.2950 V
+    Receiver signal average optical power     :  0.7200 mW / -1.43 dBm
+
+user@router> show bgp summary
+Groups: 2 Peers: 4 Down peers: 1
+Table          Tot Paths  Act Paths Suppressed    History Damp State    Pending
+inet.0               
+                 1234567    1234567          0          0          0          0
+Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Accepted/Damped...
+10.0.0.1              65001     123456     123456       0       2     2:15:23 Establ
+  inet.0: 512000/524288/524288/0
+192.168.1.1           65002          0          0       0       5        never Idle
+172.16.0.1            65003      98765      98765       0       0    15:42:11 Establ
+  inet.0: 712000/712000/712000/0
+10.255.0.2            65001          5         10       0       0       14:55 Active
+
+user@router> show ospf neighbor
+Address          Interface              State     ID               Pri  Dead
+192.168.1.2      ge-0/0/0.0             Full      2.2.2.2          128    38
+10.0.0.2         ge-0/0/1.0             Down      3.3.3.3          128     0
+172.16.0.2       xe-0/1/0.0             Full      4.4.4.4          128    35
+10.255.0.2       ae0.0                  Init      5.5.5.5          128    40
+
+user@router> show spanning-tree interface
+Spanning tree interface parameters for instance 0
+
+Interface    Port ID    Designated         Designated         Port    State  Role
+                        port ID            bridge ID          Cost
+ge-0/0/0.0      128:1      128:1       32768.001122334455      20000  FWD    DESG  
+ge-0/0/1.0      128:2      128:5       8192.aabbccddeeff       20000  BLK    DIS   
+xe-0/1/0.0      128:3      128:3       32768.001122334455      2000   FWD    DESG  
+ae0.0           128:10     128:10      32768.001122334455      10    FWD    ROOT  
+
+user@router> show ethernet-switching interfaces
+Interface    State  VLAN members        Tag   Tagging  Blocking
+ge-0/0/10.0  up     default             1     untagged unblocked
+ge-0/0/11.0  up     vlan100             100   tagged   unblocked
+xe-1/0/0.0   down   vlan200             200   tagged   blocked
+
+user@router> show chassis alarms
+2 alarms currently active
+Alarm time               Class  Description
+2024-12-11 09:15:23 PST  Major  FPC 0 PIC 0 Unresponsive
+2024-12-11 09:20:45 PST  Minor  Rescue configuration is not set
+
+user@router> show system uptime
+Current time: 2024-12-11 10:30:00 PST
+Time Source: LOCAL CLOCK
+System booted: 2024-11-15 08:23:17 PST (3w6d 02:06 ago)
+Protocols started: 2024-11-15 08:25:42 PST (3w6d 02:04 ago)
+Last configured: 2024-12-11 09:45:22 PST (00:44:38 ago) by admin
+
+user@router> show configuration interfaces ge-0/0/0 | display set
+set interfaces ge-0/0/0 description "Uplink to Core"
+set interfaces ge-0/0/0 mtu 9000
+set interfaces ge-0/0/0 unit 0 family inet address 192.168.1.1/24
+
+user@router> show configuration | compare rollback 1
+[edit interfaces ge-0/0/0]
++   mtu 9000;
+[edit protocols bgp group EXTERNAL]
+-   neighbor 192.168.1.1 {
+-       peer-as 65002;
+-   }
+!   neighbor 172.16.0.1 {
+!       peer-as 65003;
+!   }
+
+user@router> show log messages | last 10
+Dec 11 10:15:23  router rpd[1234]: RPD_OSPF_NBRDOWN: OSPF neighbor 10.0.0.2 (realm ospf-v2 ge-0/0/1.0 area 0.0.0.0) state changed from Full to Down due to InactivityTimer (event reason: inactivity timer expired)
+Dec 11 10:16:45  router chassisd[5678]: CHASSISD_SNMP_TRAP10: SNMP trap generated: FPC 0 PIC 0 Unresponsive (Minor)
+Dec 11 10:18:32  router mib2d[9012]: SNMP_TRAP_LINK_DOWN: ifIndex 508, ifAdminStatus up(1), ifOperStatus down(2), ifName ge-0/0/1
+Dec 11 10:20:15  router rpd[1234]: RPD_BGP_NEIGHBOR_STATE_CHANGED: BGP peer 192.168.1.1 (External AS 65002) changed state from OpenConfirm to Established (event RecvKeepAlive)
+Dec 11 10:22:00  router kernel: %KERN-3-SYSTEM_CRIT: Critical temperature threshold exceeded on CPU
+Dec 11 10:23:11  router mgd[3456]: UI_COMMIT: User 'admin' requested 'commit' operation
+Dec 11 10:25:08  router alarmd[7890]: Alarm set: FPC 0 offline
+Dec 11 10:27:30  router eswd[2345]: ESWD_STP_STATE_CHANGE_INFO: STP state for interface ge-0/0/1.0 context id 0 changed from FORWARDING to BLOCKING
+Dec 11 10:29:18  router mgd[3456]: UI_CONFIGURATION_ERROR: Commit check failed: [interfaces ge-0/0/0 unit 0]
+Dec 11 10:30:00  router chassisd[5678]: CHASSISD_SNMP_TRAP_CLEAR: SNMP trap cleared: FPC 0 back online (Info)
+
+user@router> show route protocol bgp terse
+inet.0: 524288 destinations, 1234567 routes (524288 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+A Destination        P Prf   Metric 1   Metric 2  Next hop         AS path
+* 0.0.0.0/0          B 170        100            >10.0.0.2         65001 I
+* 8.8.8.8/32         B 170        100            >192.168.1.2      65002 65003 I
+  10.10.0.0/16       B 170        200            >172.16.0.2       65003 65004 65005 I
+
+user@router> show interfaces ge-0/0/0 | match "link|duplex|speed"
+  Physical link is Up
+  Link-level type: Ethernet, MTU: 9000, Speed: 1000mbps, Duplex: Full-Duplex, BPDU Error: None
+
+user@router> show interfaces ge-0/0/1 | match "link|duplex|speed" 
+  Physical link is Down
+  Link-level type: Ethernet, MTU: 1514, Speed: 1000mbps, Duplex: Half-Duplex, BPDU Error: None
