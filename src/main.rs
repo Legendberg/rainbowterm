@@ -1,12 +1,12 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
-use std::time::Duration;
 use regex::Regex;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use clap::{Parser, Subcommand};
 
 mod config;
 mod context;
+mod matching;
 #[cfg(feature = "convert")]
 mod convert;
 
@@ -67,7 +67,7 @@ fn main() -> anyhow::Result<()> {
 
         if let Some(output_path) = output {
             std::fs::write(&output_path, toml_content)?;
-            eprintln!("Converted {} to {}", input.display(), output_path.display());
+            println!("Converted {} to {}", input.display(), output_path.display());
         } else {
             // Write to stdout
             println!("{}", toml_content);
@@ -79,9 +79,10 @@ fn main() -> anyhow::Result<()> {
     // Reject convert command if feature not enabled
     #[cfg(not(feature = "convert"))]
     if cli.command.is_some() {
-        eprintln!("ERROR: Convert feature is disabled (uses deprecated serde_yaml)");
-        eprintln!("Enable with: cargo install rainbowterm --features convert");
-        std::process::exit(1);
+        anyhow::bail!(
+            "Convert feature is disabled (uses deprecated serde_yaml).\n\
+             Enable with: cargo install rainbowterm --features convert"
+        );
     }
 
     // Load configuration
@@ -144,194 +145,73 @@ fn main() -> anyhow::Result<()> {
     run_colorizer(&config, &profile, cli.no_color, cli.no_context)
 }
 
-/// Demo mode with basic hardcoded patterns (no config file)
-#[allow(dead_code)]
-fn run_demo_mode(no_color: bool) -> anyhow::Result<()> {
-    let color_choice = if no_color {
-        ColorChoice::Never
-    } else {
-        ColorChoice::Always
-    };
-
-    let mut stdout = StandardStream::stdout(color_choice);
-    let stdin = io::stdin();
-
-    // Read raw bytes and handle properly
-    use io::Read;
-    let mut buffer = Vec::new();
-    stdin.lock().read_to_end(&mut buffer)?;
-
-    // Split on newlines and carriage returns, keeping separators
-    let split_regex = Regex::new(r"(\r\n?|\n)")?;
-    let text = String::from_utf8_lossy(&buffer);
-
-    let mut chunks: Vec<(String, String)> = Vec::new();
-    let mut last_end = 0;
-
-    for mat in split_regex.find_iter(&text) {
-        let data = text[last_end..mat.start()].to_string();
-        let separator = text[mat.start()..mat.end()].to_string();
-        chunks.push((data, separator));
-        last_end = mat.end();
-    }
-
-    if last_end < text.len() {
-        chunks.push((text[last_end..].to_string(), String::new()));
-    }
-
-    let interface_regex = Regex::new(r"\b((?:ge|xe|et|fe|mge|pfe)-?\d+(?:/\d+)*(?:\.\d+)?)\b")?;
-    let up_regex = Regex::new(r"\b(up|Up|UP)\b")?;
-    let down_regex = Regex::new(r"\b(down|Down|DOWN)\b")?;
-
-    for (data, separator) in chunks {
-        let mut colored_parts: Vec<(usize, usize, Color)> = Vec::new();
-
-        for cap in interface_regex.captures_iter(&data) {
-            if let Some(m) = cap.get(1) {
-                colored_parts.push((m.start(), m.end(), Color::Cyan));
-            }
-        }
-
-        for cap in up_regex.captures_iter(&data) {
-            if let Some(m) = cap.get(1) {
-                colored_parts.push((m.start(), m.end(), Color::Green));
-            }
-        }
-
-        for cap in down_regex.captures_iter(&data) {
-            if let Some(m) = cap.get(1) {
-                colored_parts.push((m.start(), m.end(), Color::Red));
-            }
-        }
-
-        colored_parts.sort_by_key(|k| k.0);
-
-        let mut last_pos = 0;
-        for (start, end, color) in colored_parts {
-            write!(stdout, "{}", &data[last_pos..start])?;
-            stdout.set_color(ColorSpec::new().set_fg(Some(color)))?;
-            write!(stdout, "{}", &data[start..end])?;
-            stdout.reset()?;
-            last_pos = end;
-        }
-
-        // Write remaining data and separator unchanged
-        write!(stdout, "{}", &data[last_pos..])?;
-        write!(stdout, "{}", separator)?;
-    }
-
-    Ok(())
-}
-
-/// Color specification for pattern matching (resolved from config)
-#[derive(Debug, Clone)]
-enum ResolvedColorSpec {
-    Simple(String),
-    Groups(std::collections::HashMap<u32, String>),
-}
-
 /// Helper function to process and output a single chunk
 fn process_and_output_chunk(
     data: &str,
     separator: &str,
     stdout: &mut StandardStream,
-    compiled_patterns: &[(Regex, ResolvedColorSpec, i32, bool)],
+    compiled_patterns: &[matching::CompiledPattern],
     context_engine: &mut Option<ContextEngine>,
     config: &Config,
 ) -> anyhow::Result<()> {
-    let mut colored_parts: Vec<(usize, usize, String)> = Vec::new();
-
     // Update context state first (before applying patterns)
     if let Some(ref mut engine) = context_engine {
         engine.process_line(data);
     }
 
-    // Apply context-aware rules (highest priority)
+    // Collect colored ranges from context rules and patterns
+    let mut colored_parts: Vec<(usize, usize, String)> = Vec::new();
+
+    // Context-aware rules (highest priority)
     if let Some(ref engine) = context_engine {
-        let palette_resolver = |color_ref: &str| config.resolve_color(color_ref);
-        let context_colors = engine.apply_rules(data, &palette_resolver);
-        colored_parts.extend(context_colors);
+        colored_parts.extend(engine.apply_rules(data, &|c| config.resolve_color(c)));
     }
 
-    // Apply regular patterns (lower priority)
-    // Note: exclusive flag only stops finding more instances of the SAME pattern,
-    // not all patterns. Overlap removal happens later based on priority.
-    for (regex, color_spec, _priority, exclusive) in compiled_patterns {
-        for cap in regex.captures_iter(data) {
-            // Check if there are capture groups (beyond group 0)
-            if cap.len() > 1 {
-                // Color only the captured groups, not the whole match
-                match color_spec {
-                    ResolvedColorSpec::Simple(color) => {
-                        // Apply same color to all capture groups
-                        for i in 1..cap.len() {
-                            if let Some(m) = cap.get(i) {
-                                colored_parts.push((m.start(), m.end(), color.clone()));
-                            }
-                        }
-                    }
-                    ResolvedColorSpec::Groups(group_colors) => {
-                        // Apply different colors to each capture group
-                        for i in 1..cap.len() {
-                            if let Some(m) = cap.get(i) {
-                                // Look up color for this specific group number
-                                if let Some(color) = group_colors.get(&(i as u32)) {
-                                    colored_parts.push((m.start(), m.end(), color.clone()));
-                                }
-                                // If no color specified for this group, don't color it
-                            }
-                        }
-                    }
-                }
-            } else if let Some(m) = cap.get(0) {
-                // No capture groups, color the whole match with simple color only
-                if let ResolvedColorSpec::Simple(color) = color_spec {
-                    colored_parts.push((m.start(), m.end(), color.clone()));
-                }
-            }
+    // Regular pattern matching (lower priority)
+    colored_parts.extend(matching::apply_patterns(data, compiled_patterns));
 
-            if *exclusive {
-                // Stop looking for more instances of THIS pattern only
-                break;
-            }
-        }
-    }
-
-    // Sort by position and remove overlaps
+    // Sort and remove overlaps
     colored_parts.sort_by_key(|k| k.0);
+    let final_parts = remove_overlapping_ranges(colored_parts);
 
-    let mut final_parts: Vec<(usize, usize, String)> = Vec::new();
-    for part in colored_parts {
-        let overlaps = final_parts.iter().any(|(s, e, _)| {
-            (part.0 >= *s && part.0 < *e) || (part.1 > *s && part.1 <= *e)
-        });
-        if !overlaps {
-            final_parts.push(part);
-        }
-    }
-
-    // Print the data with colors
-    let mut last_pos = 0;
-    for (start, end, color_hex) in final_parts {
-        write!(stdout, "{}", &data[last_pos..start])?;
-
-        // Convert hex to RGB
-        if let Some(rgb) = parse_hex_color(&color_hex) {
-            let mut spec = ColorSpec::new();
-            spec.set_fg(Some(Color::Rgb(rgb.0, rgb.1, rgb.2)));
-            stdout.set_color(&spec)?;
-        }
-
-        write!(stdout, "{}", &data[start..end])?;
-        stdout.reset()?;
-
-        last_pos = end;
-    }
-
-    // Write remaining data and separator unchanged (like ChromaTerm)
-    write!(stdout, "{}", &data[last_pos..])?;
+    // Render colored output
+    render_colored_output(stdout, data, &final_parts)?;
     write!(stdout, "{}", separator)?;
 
+    Ok(())
+}
+
+/// Remove overlapping color ranges (keeps first/higher priority)
+fn remove_overlapping_ranges(ranges: Vec<(usize, usize, String)>) -> Vec<(usize, usize, String)> {
+    let mut result = Vec::new();
+    for range in ranges {
+        let overlaps = result.iter().any(|(s, e, _)| {
+            (range.0 >= *s && range.0 < *e) || (range.1 > *s && range.1 <= *e)
+        });
+        if !overlaps {
+            result.push(range);
+        }
+    }
+    result
+}
+
+/// Render text with color ranges to stdout
+fn render_colored_output(
+    stdout: &mut StandardStream,
+    data: &str,
+    ranges: &[(usize, usize, String)],
+) -> anyhow::Result<()> {
+    let mut last_pos = 0;
+    for (start, end, color_hex) in ranges {
+        write!(stdout, "{}", &data[last_pos..*start])?;
+        if let Some((r, g, b)) = parse_hex_color(color_hex) {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(r, g, b))))?;
+        }
+        write!(stdout, "{}", &data[*start..*end])?;
+        stdout.reset()?;
+        last_pos = *end;
+    }
+    write!(stdout, "{}", &data[last_pos..])?;
     Ok(())
 }
 
@@ -342,143 +222,89 @@ fn run_colorizer(
     no_color: bool,
     no_context: bool,
 ) -> anyhow::Result<()> {
-    let color_choice = if no_color {
-        ColorChoice::Never
-    } else {
-        ColorChoice::Always
-    };
-
+    let color_choice = if no_color { ColorChoice::Never } else { ColorChoice::Always };
     let mut stdout = StandardStream::stdout(color_choice);
-    let stdin = io::stdin();
 
-    // Read in chunks like ChromaTerm does (8192 bytes at a time)
-    use io::Read;
-    use std::thread;
-    const READ_SIZE: usize = 8192;
-    const BATCH_DELAY_MS: u64 = 10; // Small delay to batch rapid input
+    // Compile patterns once at startup
+    let compiled_patterns = matching::compile_patterns(profile, config);
+    let mut context_engine = setup_context_engine(profile, no_context);
 
-    let split_regex = Regex::new(r"(\r\n?|\n)")?;
+    // Process stdin in chunks
+    process_stdin(&mut stdout, &compiled_patterns, &mut context_engine, config)
+}
 
-    let mut stdin_handle = stdin.lock();
-    let mut accumulated_buffer = Vec::new();
-
-    // Compile all patterns from profile
-    let mut compiled_patterns: Vec<(Regex, ResolvedColorSpec, i32, bool)> = Vec::new();
-
-    for pattern in &profile.patterns {
-        let regex_str = &pattern.regex;
-        let flags = if pattern.case_insensitive { "(?i)" } else { "" };
-        let full_regex = format!("{}{}", flags, regex_str);
-
-        match Regex::new(&full_regex) {
-            Ok(regex) => {
-                // Resolve color from palette
-                let resolved_color = match &pattern.color {
-                    config::ColorSpec::Simple(c) => {
-                        ResolvedColorSpec::Simple(config.resolve_color(c))
-                    }
-                    config::ColorSpec::Groups(groups) => {
-                        // Resolve each group color through the palette
-                        // Parse string keys as u32 group numbers
-                        let mut resolved_groups = std::collections::HashMap::new();
-                        for (group_str, color_ref) in groups {
-                            if let Ok(group_num) = group_str.parse::<u32>() {
-                                resolved_groups.insert(group_num, config.resolve_color(color_ref));
-                            } else {
-                                eprintln!("Warning: Invalid group number '{}' in pattern '{}'", group_str, pattern.description);
-                            }
-                        }
-                        ResolvedColorSpec::Groups(resolved_groups)
-                    }
-                };
-                compiled_patterns.push((regex, resolved_color, pattern.priority, pattern.exclusive));
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to compile pattern '{}': {}", pattern.description, e);
-            }
+/// Setup context engine if enabled
+fn setup_context_engine(profile: &config::Profile, no_context: bool) -> Option<ContextEngine> {
+    if no_context {
+        return None;
+    }
+    let mut engine = ContextEngine::new();
+    for context in &profile.contexts {
+        if let Err(e) = engine.add_context(context) {
+            eprintln!("Warning: Failed to compile context '{}': {}", context.name, e);
         }
     }
+    Some(engine)
+}
 
-    // Sort patterns by priority (highest first)
-    compiled_patterns.sort_by(|a, b| b.2.cmp(&a.2));
+/// Process stdin in chunks
+fn process_stdin(
+    stdout: &mut StandardStream,
+    patterns: &[matching::CompiledPattern],
+    context_engine: &mut Option<ContextEngine>,
+    config: &Config,
+) -> anyhow::Result<()> {
+    use io::Read;
 
-    // Initialize context engine if context-aware mode is enabled
-    let mut context_engine = if !no_context {
-        let mut engine = ContextEngine::new();
-        for context in &profile.contexts {
-            if let Err(e) = engine.add_context(context) {
-                eprintln!("Warning: Failed to compile context '{}': {}", context.name, e);
-            }
-        }
-        Some(engine)
-    } else {
-        None
-    };
+    const READ_SIZE: usize = 8192;
+    const BATCH_DELAY_MS: u64 = 10;
 
-    // Read and process chunks in a loop - simple approach
+    let split_regex = Regex::new(r"(\r\n?|\n)")?;
+    let stdin = io::stdin();
+    let mut stdin_handle = stdin.lock();
+    let mut buffer = Vec::new();
+
     loop {
-        let mut chunk_buffer = vec![0u8; READ_SIZE];
-        let bytes_read = stdin_handle.read(&mut chunk_buffer)?;
+        let mut chunk = vec![0u8; READ_SIZE];
+        let bytes_read = stdin_handle.read(&mut chunk)?;
 
         if bytes_read == 0 {
-            // EOF reached - process any remaining data
-            if !accumulated_buffer.is_empty() {
-                let text = String::from_utf8_lossy(&accumulated_buffer);
-                process_and_output_chunk(
-                    &text,
-                    "",
-                    &mut stdout,
-                    &compiled_patterns,
-                    &mut context_engine,
-                    config,
-                )?;
+            // EOF - process remaining data
+            if !buffer.is_empty() {
+                let text = String::from_utf8_lossy(&buffer);
+                process_and_output_chunk(&text, "", stdout, patterns, context_engine, config)?;
             }
             break;
         }
 
-        // Append new data to accumulated buffer
-        accumulated_buffer.extend_from_slice(&chunk_buffer[..bytes_read]);
+        buffer.extend_from_slice(&chunk[..bytes_read]);
+        std::thread::sleep(std::time::Duration::from_millis(BATCH_DELAY_MS));
 
-        // Small delay to batch rapid input (like typing)
-        thread::sleep(Duration::from_millis(BATCH_DELAY_MS));
-
-        // Split buffer into (data, separator) tuples
-        let text = String::from_utf8_lossy(&accumulated_buffer);
-        let mut chunks: Vec<(String, String)> = Vec::new();
-        let mut last_end = 0;
-
-        for mat in split_regex.find_iter(&text) {
-            let data = text[last_end..mat.start()].to_string();
-            let separator = text[mat.start()..mat.end()].to_string();
-            chunks.push((data, separator));
-            last_end = mat.end();
+        // Split and process chunks
+        let text = String::from_utf8_lossy(&buffer);
+        for (data, sep) in split_text_chunks(&text, &split_regex) {
+            process_and_output_chunk(&data, &sep, stdout, patterns, context_engine, config)?;
         }
 
-        // If there's incomplete data (like a prompt), output it too
-        if last_end < text.len() {
-            chunks.push((text[last_end..].to_string(), String::new()));
-        }
-
-        // Process all chunks
-        for (data, separator) in chunks {
-            process_and_output_chunk(
-                &data,
-                &separator,
-                &mut stdout,
-                &compiled_patterns,
-                &mut context_engine,
-                config,
-            )?;
-        }
-
-        // Clear buffer after processing
-        accumulated_buffer.clear();
-
-        // Flush output
+        buffer.clear();
         io::stdout().flush()?;
     }
 
     Ok(())
+}
+
+/// Split text into (data, separator) chunks on line boundaries
+fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
+    let mut chunks = Vec::new();
+    let mut last_end = 0;
+    for mat in regex.find_iter(text) {
+        chunks.push((text[last_end..mat.start()].to_string(), mat.as_str().to_string()));
+        last_end = mat.end();
+    }
+    if last_end < text.len() {
+        chunks.push((text[last_end..].to_string(), String::new()));
+    }
+    chunks
 }
 
 /// Parse hex color string to RGB tuple
