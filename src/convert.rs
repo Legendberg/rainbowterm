@@ -1,3 +1,5 @@
+#![cfg(feature = "convert")]
+
 use serde::Deserialize;
 use std::collections::HashMap;
 

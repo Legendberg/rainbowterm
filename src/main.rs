@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 
 mod config;
 mod context;
+#[cfg(feature = "convert")]
 mod convert;
 
 use config::Config;
@@ -43,7 +44,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Convert ChromaTerm YAML to RainbowTerm TOML
+    /// Convert ChromaTerm YAML to RainbowTerm TOML (DEPRECATED - requires 'convert' feature)
+    #[cfg(feature = "convert")]
     Convert {
         /// Input YAML file
         input: PathBuf,
@@ -57,7 +59,8 @@ enum Commands {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    // Handle convert subcommand
+    // Handle convert subcommand (feature-gated due to deprecated serde_yaml)
+    #[cfg(feature = "convert")]
     if let Some(Commands::Convert { input, output }) = cli.command {
         let yaml_content = std::fs::read_to_string(&input)?;
         let toml_content = convert::convert_yaml_to_toml(&yaml_content)?;
@@ -71,6 +74,14 @@ fn main() -> anyhow::Result<()> {
         }
 
         return Ok(());
+    }
+
+    // Reject convert command if feature not enabled
+    #[cfg(not(feature = "convert"))]
+    if cli.command.is_some() {
+        eprintln!("ERROR: Convert feature is disabled (uses deprecated serde_yaml)");
+        eprintln!("Enable with: cargo install rainbowterm --features convert");
+        std::process::exit(1);
     }
 
     // Load configuration
