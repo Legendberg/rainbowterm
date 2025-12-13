@@ -91,6 +91,19 @@ ge-0/0/10.0  up     default             1     untagged unblocked
 ge-0/0/11.0  up     vlan100             100   tagged   unblocked
 xe-1/0/0.0   down   vlan200             200   tagged   blocked
 
+user@router> show ethernet-switching table
+MAC flags (S - static MAC, D - dynamic MAC, L - locally learned)
+
+Ethernet switching table : 5 entries, 5 learned
+Routing instance : default-switch
+    Vlan                MAC                 MAC         Age   Logical                NH
+    name                address             flags             interface              Index
+    default             00:25:90:35:bb:00   D             -   ae0.0                  0
+    default             ae:6e:6f:92:92:a9   D             -   xe-0/1/1.0             0
+    default             48:b0:2d:00:20:61   D             -   xe-0/1/1.0             0
+    default             94:2a:6f:44:74:10   D             -   xe-0/1/1.0             0
+    default             fe:ed:be:ef:ca:fe   D             -   ge-0/0/0.0             0
+
 user@router> show chassis alarms
 2 alarms currently active
 Alarm time               Class  Description

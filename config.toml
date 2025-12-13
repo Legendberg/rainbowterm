@@ -134,19 +134,20 @@ exclusive = false
 case_insensitive = false
 
 # MAC addresses (simplified without lookbehind/lookahead)
+# Priority 150 to override queue counter patterns (145) that could match first 2 hex digits
 [[profiles.base.patterns]]
 description = "MAC addresses (colon format)"
 regex = '''\b(?:[\da-fA-F]{1,2}:){5}[\da-fA-F]{1,2}\b'''
 color = "orange-coral"
-priority = 50
-exclusive = false
+priority = 150
+exclusive = true
 
 [[profiles.base.patterns]]
 description = "MAC addresses (dot format)"
 regex = '''\b(?:[\da-fA-F]{4}\.){2}[\da-fA-F]{4}\b'''
 color = "orange-coral"
-priority = 50
-exclusive = false
+priority = 150
+exclusive = true
 
 # Dates - informational (cyan)
 [[profiles.base.patterns]]
@@ -775,7 +776,7 @@ exclusive = true
 
 [[profiles.juniper.patterns]]
 description = "Logical/virtual interfaces"
-regex = '''(?i)\b(?:lo|irb|vlan|pfe|pfh|fxp|me|em|ae|reth|bme|jsrv)(?:-?\d+(?:/\d+)*)?(?:\.\d+)?\b'''
+regex = '''(?i)\b(?:lo|irb|vlan|pfe|pfh|fxp|me|em|ae|reth|bme|jsrv)(?:-?\d+(?:/\d+)*)(?:\.\d+)?\b'''
 color = "purple-bright"
 priority = 100
 exclusive = true
