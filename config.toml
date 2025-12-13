@@ -346,6 +346,35 @@ color = "red-bright"
 priority = 240
 exclusive = false
 
+# =============================================================================
+# INTERFACE TERSE OUTPUT - Semantic coloring based on admin/link state
+# Format: <interface>  <admin>  <link>
+# =============================================================================
+
+# up down = Admin up but link down - THIS IS A PROBLEM (red)
+[[profiles.juniper.patterns]]
+description = "Interface terse: admin UP, link DOWN (problem)"
+regex = '''(?i)^(\S+)\s+(up)\s+(down)\b'''
+color = { "1" = "iface-ge", "2" = "status-good", "3" = "status-critical" }
+priority = 220
+exclusive = true
+
+# down down = Admin down, link down - INTENTIONAL but notable (yellow)
+[[profiles.juniper.patterns]]
+description = "Interface terse: admin DOWN, link DOWN (intentional)"
+regex = '''(?i)^(\S+)\s+(down)\s+(down)\b'''
+color = { "1" = "iface-ge", "2" = "status-warning", "3" = "status-warning" }
+priority = 220
+exclusive = true
+
+# up up = Both up - HEALTHY (green)
+[[profiles.juniper.patterns]]
+description = "Interface terse: admin UP, link UP (healthy)"
+regex = '''(?i)^(\S+)\s+(up)\s+(up)\b'''
+color = { "1" = "iface-ge", "2" = "status-good", "3" = "status-good" }
+priority = 220
+exclusive = true
+
 # Interface patterns by speed
 [[profiles.juniper.patterns]]
 description = "Ultra-high-speed interfaces (100G+)"
@@ -758,20 +787,63 @@ color = "iface-standard"
 priority = 80
 exclusive = true
 
-# BGP States
+# =============================================================================
+# BGP STATES - Semantic coloring based on peer state
+# =============================================================================
+
+# Established = Peer is up and exchanging routes - HEALTHY
 [[profiles.juniper.patterns]]
-description = "BGP Established state"
+description = "BGP Established state (healthy)"
 regex = '''\b(Established)\b'''
 color = "status-excellent"
 priority = 90
 exclusive = true
 
+# Idle = Peer is down/not trying - PROBLEM (usually)
 [[profiles.juniper.patterns]]
-description = "BGP Idle state"
+description = "BGP Idle state (down)"
 regex = '''\b(Idle)\b'''
 color = "status-critical"
 priority = 90
 exclusive = true
+
+# Active/Connect = Peer is trying to connect - WARNING (not up yet)
+[[profiles.juniper.patterns]]
+description = "BGP Active state (trying to connect)"
+regex = '''\b(Active)\b'''
+color = "status-warning"
+priority = 90
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "BGP Connect state (trying to connect)"
+regex = '''\b(Connect)\b'''
+color = "status-warning"
+priority = 90
+exclusive = true
+
+# OpenSent/OpenConfirm = Negotiating - WARNING (almost there)
+[[profiles.juniper.patterns]]
+description = "BGP OpenSent state (negotiating)"
+regex = '''\b(OpenSent)\b'''
+color = "status-warning"
+priority = 90
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "BGP OpenConfirm state (negotiating)"
+regex = '''\b(OpenConfirm)\b'''
+color = "status-warning"
+priority = 90
+exclusive = true
+
+# Down peers count - highlight if non-zero
+[[profiles.juniper.patterns]]
+description = "BGP Down peers count (non-zero is concerning)"
+regex = '''Down peers:\s*([1-9]\d*)'''
+color = { "1" = "status-critical" }
+priority = 95
+exclusive = false
 
 # OSPF States
 [[profiles.juniper.patterns]]
@@ -1350,6 +1422,162 @@ value = "always"
 color = "status-good"
 
 default_color = "status-good"
+
+# =============================================================================
+# ERROR COUNTERS - Context-aware (UP interface = RED, DOWN interface = YELLOW)
+# Non-zero errors on UP interface are active problems
+# Non-zero errors on DOWN interface are historical (less urgent)
+# =============================================================================
+
+# Input errors with non-zero count
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Input errors:\s*([1-9]\d*)'''
+state_key = "physical_link"
+priority = 195
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-critical"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "status-warning"
+
+default_color = "status-warning"
+
+# Output errors with non-zero count
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Output errors:\s*([1-9]\d*)'''
+state_key = "physical_link"
+priority = 195
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-critical"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "status-warning"
+
+default_color = "status-warning"
+
+# CRC errors with non-zero count
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)CRC(?:\s+errors)?:\s*([1-9]\d*)'''
+state_key = "physical_link"
+priority = 195
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-critical"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "status-warning"
+
+default_color = "status-warning"
+
+# Framing errors with non-zero count
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Framing errors:\s*([1-9]\d*)'''
+state_key = "physical_link"
+priority = 195
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-critical"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "status-warning"
+
+default_color = "status-warning"
+
+# Drops with non-zero count
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)(?:Input|Output)?\s*Drops:\s*([1-9]\d*)'''
+state_key = "physical_link"
+priority = 195
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-critical"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "status-warning"
+
+default_color = "status-warning"
+
+# =============================================================================
+# ZERO TRAFFIC - Context-aware (UP interface = suspicious, DOWN = expected)
+# Zero traffic on UP interface might indicate misconfiguration
+# Zero traffic on DOWN interface is expected
+# =============================================================================
+
+# Zero input bytes on interface
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Input\s+bytes\s*:\s*(0)\s'''
+state_key = "physical_link"
+priority = 190
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-warning"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "gray-medium"
+
+default_color = "gray-medium"
+
+# Zero output bytes on interface
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Output\s+bytes\s*:\s*(0)\s'''
+state_key = "physical_link"
+priority = 190
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-warning"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "gray-medium"
+
+default_color = "gray-medium"
+
+# Zero input packets
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Input\s+packets\s*:\s*(0)\s'''
+state_key = "physical_link"
+priority = 190
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-warning"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "gray-medium"
+
+default_color = "gray-medium"
+
+# Zero output packets
+[[profiles.juniper.contexts.rules]]
+pattern = '''(?i)Output\s+packets\s*:\s*(0)\s'''
+state_key = "physical_link"
+priority = 190
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Up"
+color = "status-warning"
+
+[[profiles.juniper.contexts.rules.colors]]
+value = "Down"
+color = "gray-medium"
+
+default_color = "gray-medium"
 
 # =============================================================================
 # CISCO PROFILE

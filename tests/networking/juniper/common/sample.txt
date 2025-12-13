@@ -145,6 +145,68 @@ user@router> show interfaces ge-0/0/0 | match "link|duplex|speed"
   Physical link is Up
   Link-level type: Ethernet, MTU: 9000, Speed: 1000mbps, Duplex: Full-Duplex, BPDU Error: None
 
-user@router> show interfaces ge-0/0/1 | match "link|duplex|speed" 
+user@router> show interfaces ge-0/0/1 | match "link|duplex|speed"
   Physical link is Down
   Link-level type: Ethernet, MTU: 1514, Speed: 1000mbps, Duplex: Half-Duplex, BPDU Error: None
+
+================================================================================
+SEMANTIC COLORING EXAMPLES - Context-aware rules in action
+================================================================================
+
+# Interface terse output: same words, different meanings
+# up down = Problem (admin up but link down) - RED
+# down down = Intentional (admin disabled) - YELLOW
+# up up = Healthy - GREEN
+user@router> show interfaces terse | match "ge-0/0/2|ge-0/0/3|ge-0/0/4"
+ge-0/0/2                up    up              # Healthy
+ge-0/0/3                up    down            # Problem! Port enabled but no link
+ge-0/0/4                down  down            # Intentional - admin disabled
+
+# BGP states with semantic meaning
+# Established = good, Idle = down, Active/Connect/OpenSent = trying
+user@router> show bgp summary | match "State|10\."
+10.1.1.1              65001     123456     123456       0       0     2:15:23 Established
+10.1.1.2              65002          0          0       0       5        never Idle
+10.1.1.3              65003         50         60       0       0        1:30 Active
+10.1.1.4              65004         10         12       0       0        0:45 Connect
+10.1.1.5              65005         25         30       0       0        0:10 OpenSent
+10.1.1.6              65006         30         35       0       0        0:05 OpenConfirm
+
+# Error counters: context matters!
+# Errors on UP interface = RED (active problem)
+# Errors on DOWN interface = YELLOW (historical, less urgent)
+
+user@router> show interfaces extensive ge-0/0/5
+Physical interface: ge-0/0/5, Enabled, Physical link is Up
+  Device flags   : Present Running
+  Input errors:  1234
+  Output errors: 567
+  CRC errors:    89
+  Framing errors: 12
+  Drops: 456
+
+user@router> show interfaces extensive ge-0/0/6
+Physical interface: ge-0/0/6, Disabled, Physical link is Down
+  Device flags   : Present
+  Input errors:  9999
+  Output errors: 8888
+  CRC errors:    7777
+  Framing errors: 6666
+  Drops: 5555
+
+# Zero traffic: suspicious on UP interface, expected on DOWN
+user@router> show interfaces extensive ge-0/0/7
+Physical interface: ge-0/0/7, Enabled, Physical link is Up
+  Device flags   : Present Running
+  Input bytes   : 0
+  Output bytes  : 0
+  Input packets : 0
+  Output packets: 0
+
+user@router> show interfaces extensive ge-0/0/8
+Physical interface: ge-0/0/8, Disabled, Physical link is Down
+  Device flags   : Present
+  Input bytes   : 0
+  Output bytes  : 0
+  Input packets : 0
+  Output packets: 0
