@@ -6,7 +6,7 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-use crate::config::{self, Config, Profile};
+use crate::config::{self, ColoredRange, Config, Profile};
 
 /// Resolved color specification (post-palette lookup)
 #[derive(Debug, Clone)]
@@ -62,7 +62,7 @@ fn resolve_color_spec(color: &config::ColorSpec, config: &Config) -> ResolvedCol
 }
 
 /// Apply compiled patterns to text and return colored ranges
-pub fn apply_patterns(data: &str, patterns: &[CompiledPattern]) -> Vec<(usize, usize, String)> {
+pub fn apply_patterns(data: &str, patterns: &[CompiledPattern]) -> Vec<ColoredRange> {
     let mut colored_parts = Vec::new();
 
     for (regex, color_spec, _priority, exclusive) in patterns {
@@ -73,19 +73,19 @@ pub fn apply_patterns(data: &str, patterns: &[CompiledPattern]) -> Vec<(usize, u
                         // Color capture groups
                         for i in 1..cap.len() {
                             if let Some(m) = cap.get(i) {
-                                colored_parts.push((m.start(), m.end(), color.clone()));
+                                colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
                             }
                         }
                     } else if let Some(m) = cap.get(0) {
                         // Color whole match
-                        colored_parts.push((m.start(), m.end(), color.clone()));
+                        colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
                     }
                 }
                 ResolvedColorSpec::Groups(group_colors) => {
                     for i in 1..cap.len() {
                         if let Some(m) = cap.get(i) {
                             if let Some(color) = group_colors.get(&(i as u32)) {
-                                colored_parts.push((m.start(), m.end(), color.clone()));
+                                colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
                             }
                         }
                     }

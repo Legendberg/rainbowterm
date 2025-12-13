@@ -1,6 +1,37 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Default fallback color when no color is specified
+pub const DEFAULT_COLOR: &str = "#ffffff";
+
+/// A colored text range (start position, end position, hex color)
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColoredRange {
+    pub start: usize,
+    pub end: usize,
+    pub color: String,
+}
+
+impl ColoredRange {
+    pub fn new(start: usize, end: usize, color: String) -> Self {
+        Self { start, end, color }
+    }
+}
+
+/// Parse hex color string to RGB tuple
+pub fn parse_hex_color(hex: &str) -> Option<(u8, u8, u8)> {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+    Some((r, g, b))
+}
+
 /// Main configuration structure
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {

@@ -1,7 +1,8 @@
+use anyhow::{Context as AnyhowContext, Result};
 use regex::Regex;
 use std::collections::HashMap;
 
-use crate::config::Context;
+use crate::config::{ColoredRange, Context, DEFAULT_COLOR};
 
 /// Compiled context with pre-compiled regex patterns
 pub struct CompiledContext {
@@ -33,11 +34,17 @@ pub struct ContextState {
     pub variables: HashMap<String, String>,
 }
 
-impl ContextState {
-    pub fn new() -> Self {
-        ContextState {
+impl Default for ContextState {
+    fn default() -> Self {
+        Self {
             variables: HashMap::new(),
         }
+    }
+}
+
+impl ContextState {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn reset(&mut self) {
@@ -59,23 +66,29 @@ pub struct ContextEngine {
     states: HashMap<String, ContextState>,
 }
 
-impl ContextEngine {
-    pub fn new() -> Self {
-        ContextEngine {
+impl Default for ContextEngine {
+    fn default() -> Self {
+        Self {
             contexts: Vec::new(),
             states: HashMap::new(),
         }
     }
+}
+
+impl ContextEngine {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Compile and add a context from config
-    pub fn add_context(&mut self, context: &Context) -> Result<(), String> {
+    pub fn add_context(&mut self, context: &Context) -> Result<()> {
         let start_regex = Regex::new(&context.start)
-            .map_err(|e| format!("Failed to compile start pattern for context '{}': {}", context.name, e))?;
+            .with_context(|| format!("Failed to compile start pattern for context '{}'", context.name))?;
 
         let mut trackers = Vec::new();
         for tracker in &context.track {
             let regex = Regex::new(&tracker.pattern)
-                .map_err(|e| format!("Failed to compile tracker pattern '{}': {}", tracker.name, e))?;
+                .with_context(|| format!("Failed to compile tracker pattern '{}'", tracker.name))?;
             trackers.push(CompiledTracker {
                 name: tracker.name.clone(),
                 regex,
@@ -86,7 +99,7 @@ impl ContextEngine {
         let mut rules = Vec::new();
         for rule in &context.rules {
             let regex = Regex::new(&rule.pattern)
-                .map_err(|e| format!("Failed to compile rule pattern: {}", e))?;
+                .with_context(|| "Failed to compile rule pattern")?;
 
             let mut color_mappings = HashMap::new();
             for mapping in &rule.colors {
@@ -149,7 +162,7 @@ impl ContextEngine {
         &self,
         line: &str,
         palette_resolver: &impl Fn(&str) -> String,
-    ) -> Vec<(usize, usize, String)> {
+    ) -> Vec<ColoredRange> {
         let mut colored_parts = Vec::new();
 
         for context in &self.contexts {
@@ -165,13 +178,13 @@ impl ContextEngine {
                                         .get(state_value)
                                         .or(rule.default_color.as_ref())
                                         .map(|c| palette_resolver(c))
-                                        .unwrap_or_else(|| "#ffffff".to_string())
+                                        .unwrap_or_else(|| DEFAULT_COLOR.to_string())
                                 } else {
                                     // State variable not set yet, use default
                                     rule.default_color
                                         .as_ref()
                                         .map(|c| palette_resolver(c))
-                                        .unwrap_or_else(|| "#ffffff".to_string())
+                                        .unwrap_or_else(|| DEFAULT_COLOR.to_string())
                                 }
                             } else {
                                 // No state dependency, use first color or default
@@ -180,10 +193,10 @@ impl ContextEngine {
                                     .next()
                                     .or(rule.default_color.as_ref())
                                     .map(|c| palette_resolver(c))
-                                    .unwrap_or_else(|| "#ffffff".to_string())
+                                    .unwrap_or_else(|| DEFAULT_COLOR.to_string())
                             };
 
-                            colored_parts.push((m.start(), m.end(), color));
+                            colored_parts.push(ColoredRange::new(m.start(), m.end(), color));
                         }
                     }
                 }

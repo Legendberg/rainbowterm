@@ -10,7 +10,7 @@ mod matching;
 #[cfg(feature = "convert")]
 mod convert;
 
-use config::Config;
+use config::{parse_hex_color, ColoredRange, Config};
 use context::ContextEngine;
 
 #[derive(Parser)]
@@ -160,7 +160,7 @@ fn process_and_output_chunk(
     }
 
     // Collect colored ranges from context rules and patterns
-    let mut colored_parts: Vec<(usize, usize, String)> = Vec::new();
+    let mut colored_parts: Vec<ColoredRange> = Vec::new();
 
     // Context-aware rules (highest priority)
     if let Some(ref engine) = context_engine {
@@ -171,7 +171,7 @@ fn process_and_output_chunk(
     colored_parts.extend(matching::apply_patterns(data, compiled_patterns));
 
     // Sort and remove overlaps
-    colored_parts.sort_by_key(|k| k.0);
+    colored_parts.sort_by_key(|k| k.start);
     let final_parts = remove_overlapping_ranges(colored_parts);
 
     // Render colored output
@@ -182,11 +182,11 @@ fn process_and_output_chunk(
 }
 
 /// Remove overlapping color ranges (keeps first/higher priority)
-fn remove_overlapping_ranges(ranges: Vec<(usize, usize, String)>) -> Vec<(usize, usize, String)> {
+fn remove_overlapping_ranges(ranges: Vec<ColoredRange>) -> Vec<ColoredRange> {
     let mut result = Vec::new();
     for range in ranges {
-        let overlaps = result.iter().any(|(s, e, _)| {
-            (range.0 >= *s && range.0 < *e) || (range.1 > *s && range.1 <= *e)
+        let overlaps = result.iter().any(|r: &ColoredRange| {
+            (range.start >= r.start && range.start < r.end) || (range.end > r.start && range.end <= r.end)
         });
         if !overlaps {
             result.push(range);
@@ -199,17 +199,17 @@ fn remove_overlapping_ranges(ranges: Vec<(usize, usize, String)>) -> Vec<(usize,
 fn render_colored_output(
     stdout: &mut StandardStream,
     data: &str,
-    ranges: &[(usize, usize, String)],
+    ranges: &[ColoredRange],
 ) -> anyhow::Result<()> {
     let mut last_pos = 0;
-    for (start, end, color_hex) in ranges {
-        write!(stdout, "{}", &data[last_pos..*start])?;
-        if let Some((r, g, b)) = parse_hex_color(color_hex) {
+    for range in ranges {
+        write!(stdout, "{}", &data[last_pos..range.start])?;
+        if let Some((r, g, b)) = parse_hex_color(&range.color) {
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(r, g, b))))?;
         }
-        write!(stdout, "{}", &data[*start..*end])?;
+        write!(stdout, "{}", &data[range.start..range.end])?;
         stdout.reset()?;
-        last_pos = *end;
+        last_pos = range.end;
     }
     write!(stdout, "{}", &data[last_pos..])?;
     Ok(())
@@ -305,18 +305,4 @@ fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
         chunks.push((text[last_end..].to_string(), String::new()));
     }
     chunks
-}
-
-/// Parse hex color string to RGB tuple
-fn parse_hex_color(hex: &str) -> Option<(u8, u8, u8)> {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-
-    Some((r, g, b))
 }
