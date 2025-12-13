@@ -2,7 +2,8 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use regex::Regex;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 
 mod config;
 mod context;
@@ -44,6 +45,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+
     /// Convert ChromaTerm YAML to RainbowTerm TOML (DEPRECATED - requires 'convert' feature)
     #[cfg(feature = "convert")]
     Convert {
@@ -59,30 +67,28 @@ enum Commands {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    // Handle convert subcommand (feature-gated due to deprecated serde_yaml)
-    #[cfg(feature = "convert")]
-    if let Some(Commands::Convert { input, output }) = cli.command {
-        let yaml_content = std::fs::read_to_string(&input)?;
-        let toml_content = convert::convert_yaml_to_toml(&yaml_content)?;
+    // Handle subcommands first
+    if let Some(command) = &cli.command {
+        match command {
+            Commands::Completions { shell } => {
+                let mut cmd = Cli::command();
+                generate(*shell, &mut cmd, "rt", &mut io::stdout());
+                return Ok(());
+            }
+            #[cfg(feature = "convert")]
+            Commands::Convert { input, output } => {
+                let yaml_content = std::fs::read_to_string(input)?;
+                let toml_content = convert::convert_yaml_to_toml(&yaml_content)?;
 
-        if let Some(output_path) = output {
-            std::fs::write(&output_path, toml_content)?;
-            println!("Converted {} to {}", input.display(), output_path.display());
-        } else {
-            // Write to stdout
-            println!("{}", toml_content);
+                if let Some(output_path) = output {
+                    std::fs::write(output_path, toml_content)?;
+                    println!("Converted {} to {}", input.display(), output_path.display());
+                } else {
+                    println!("{}", toml_content);
+                }
+                return Ok(());
+            }
         }
-
-        return Ok(());
-    }
-
-    // Reject convert command if feature not enabled
-    #[cfg(not(feature = "convert"))]
-    if cli.command.is_some() {
-        anyhow::bail!(
-            "Convert feature is disabled (uses deprecated serde_yaml).\n\
-             Enable with: cargo install rainbowterm --features convert"
-        );
     }
 
     // Load configuration
@@ -110,7 +116,7 @@ fn main() -> anyhow::Result<()> {
     let config = if config_path.exists() {
         Config::from_file(&config_path)?
     } else {
-        Config::from_str(DEFAULT_CONFIG)?
+        Config::parse(DEFAULT_CONFIG)?
     };
 
     // Handle --list-profiles

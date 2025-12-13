@@ -33,7 +33,7 @@ pub fn parse_hex_color(hex: &str) -> Option<(u8, u8, u8)> {
 }
 
 /// Main configuration structure
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Config {
     /// Default profile to use when none is specified
     #[serde(default)]
@@ -205,13 +205,78 @@ impl Config {
     pub fn from_file(path: &std::path::Path) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(path)?;
         let config: Config = toml::from_str(&content)?;
+        config.validate()?;
         Ok(config)
     }
 
     /// Load configuration from string
-    pub fn from_str(content: &str) -> anyhow::Result<Self> {
+    pub fn parse(content: &str) -> anyhow::Result<Self> {
         let config: Config = toml::from_str(content)?;
+        config.validate()?;
         Ok(config)
+    }
+
+    /// Validate configuration for common errors
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let mut warnings = Vec::new();
+
+        for (profile_name, profile) in &self.profiles {
+            // Check that inherited profiles exist
+            for inherit in &profile.inherits {
+                if !self.profiles.contains_key(inherit) {
+                    anyhow::bail!(
+                        "Profile '{}' inherits from '{}' which does not exist",
+                        profile_name,
+                        inherit
+                    );
+                }
+            }
+
+            // Validate regex patterns compile
+            for pattern in &profile.patterns {
+                let flags = if pattern.case_insensitive { "(?i)" } else { "" };
+                let full_regex = format!("{}{}", flags, pattern.regex);
+                if regex::Regex::new(&full_regex).is_err() {
+                    warnings.push(format!(
+                        "Profile '{}': Invalid regex in pattern '{}': {}",
+                        profile_name, pattern.description, pattern.regex
+                    ));
+                }
+            }
+
+            // Validate context patterns compile
+            for context in &profile.contexts {
+                if regex::Regex::new(&context.start).is_err() {
+                    warnings.push(format!(
+                        "Profile '{}': Invalid regex in context '{}' start pattern",
+                        profile_name, context.name
+                    ));
+                }
+                for tracker in &context.track {
+                    if regex::Regex::new(&tracker.pattern).is_err() {
+                        warnings.push(format!(
+                            "Profile '{}': Invalid regex in tracker '{}' pattern",
+                            profile_name, tracker.name
+                        ));
+                    }
+                }
+                for rule in &context.rules {
+                    if regex::Regex::new(&rule.pattern).is_err() {
+                        warnings.push(format!(
+                            "Profile '{}': Invalid regex in context rule pattern: {}",
+                            profile_name, rule.pattern
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Print warnings but don't fail
+        for warning in warnings {
+            eprintln!("Warning: {}", warning);
+        }
+
+        Ok(())
     }
 
     /// Get a profile by name, with inheritance resolved
@@ -251,12 +316,118 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            default_profile: None,
-            palette: HashMap::new(),
-            profiles: HashMap::new(),
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_hex_color_valid() {
+        assert_eq!(parse_hex_color("#ff0000"), Some((255, 0, 0)));
+        assert_eq!(parse_hex_color("#00ff00"), Some((0, 255, 0)));
+        assert_eq!(parse_hex_color("#0000ff"), Some((0, 0, 255)));
+        assert_eq!(parse_hex_color("#ffffff"), Some((255, 255, 255)));
+        assert_eq!(parse_hex_color("#000000"), Some((0, 0, 0)));
+        // Without hash
+        assert_eq!(parse_hex_color("ff8c00"), Some((255, 140, 0)));
+    }
+
+    #[test]
+    fn test_parse_hex_color_invalid() {
+        assert_eq!(parse_hex_color("#fff"), None); // Too short
+        assert_eq!(parse_hex_color("#fffffff"), None); // Too long
+        assert_eq!(parse_hex_color("#gggggg"), None); // Invalid chars
+        assert_eq!(parse_hex_color(""), None); // Empty
+    }
+
+    #[test]
+    fn test_colored_range_new() {
+        let range = ColoredRange::new(10, 20, "#ff0000".to_string());
+        assert_eq!(range.start, 10);
+        assert_eq!(range.end, 20);
+        assert_eq!(range.color, "#ff0000");
+    }
+
+    #[test]
+    fn test_config_parse_minimal() {
+        let toml = r##"
+            default_profile = "test"
+            [palette]
+            red = "#ff0000"
+            [profiles.test]
+            description = "Test profile"
+        "##;
+        let config = Config::parse(toml).unwrap();
+        assert_eq!(config.default_profile, Some("test".to_string()));
+        assert_eq!(config.palette.get("red"), Some(&"#ff0000".to_string()));
+        assert!(config.profiles.contains_key("test"));
+    }
+
+    #[test]
+    fn test_config_resolve_color_hex() {
+        let config = Config::default();
+        assert_eq!(config.resolve_color("#ff0000"), "#ff0000");
+    }
+
+    #[test]
+    fn test_config_resolve_color_palette() {
+        let mut config = Config::default();
+        config.palette.insert("red".to_string(), "#ff0000".to_string());
+        assert_eq!(config.resolve_color("red"), "#ff0000");
+    }
+
+    #[test]
+    fn test_config_resolve_color_missing() {
+        let config = Config::default();
+        // Returns the key as-is if not found
+        assert_eq!(config.resolve_color("unknown"), "unknown");
+    }
+
+    #[test]
+    fn test_profile_inheritance() {
+        let toml = r##"
+            [profiles.base]
+            description = "Base profile"
+            [[profiles.base.patterns]]
+            description = "IP addresses"
+            regex = '\d+\.\d+\.\d+\.\d+'
+            color = "#00ff00"
+
+            [profiles.child]
+            description = "Child profile"
+            inherits = ["base"]
+            [[profiles.child.patterns]]
+            description = "Child pattern"
+            regex = 'test'
+            color = "#ff0000"
+        "##;
+        let config = Config::parse(toml).unwrap();
+        let profile = config.get_profile("child").unwrap();
+        // Should have patterns from both base and child
+        assert_eq!(profile.patterns.len(), 2);
+    }
+
+    #[test]
+    fn test_validate_missing_inherit() {
+        let toml = r##"
+            [profiles.child]
+            description = "Child profile"
+            inherits = ["nonexistent"]
+        "##;
+        let result = Config::parse(toml);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("nonexistent"));
+    }
+
+    #[test]
+    fn test_validate_valid_config() {
+        let toml = r##"
+            [profiles.test]
+            description = "Test"
+            [[profiles.test.patterns]]
+            regex = '\d+'
+            color = "#ff0000"
+        "##;
+        assert!(Config::parse(toml).is_ok());
     }
 }

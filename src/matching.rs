@@ -100,3 +100,111 @@ pub fn apply_patterns(data: &str, patterns: &[CompiledPattern]) -> Vec<ColoredRa
 
     colored_parts
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use regex::Regex;
+
+    fn make_simple_pattern(regex: &str, color: &str, priority: i32) -> CompiledPattern {
+        (
+            Regex::new(regex).unwrap(),
+            ResolvedColorSpec::Simple(color.to_string()),
+            priority,
+            false,
+        )
+    }
+
+    #[test]
+    fn test_apply_patterns_simple_match() {
+        let patterns = vec![make_simple_pattern(r"\d+\.\d+\.\d+\.\d+", "#00ff00", 100)];
+        let result = apply_patterns("IP: 192.168.1.1", &patterns);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].start, 4);
+        assert_eq!(result[0].end, 15);
+        assert_eq!(result[0].color, "#00ff00");
+    }
+
+    #[test]
+    fn test_apply_patterns_multiple_matches() {
+        let patterns = vec![make_simple_pattern(r"\d+\.\d+\.\d+\.\d+", "#00ff00", 100)];
+        let result = apply_patterns("From 10.0.0.1 to 192.168.1.1", &patterns);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_apply_patterns_no_match() {
+        let patterns = vec![make_simple_pattern(r"\d+\.\d+\.\d+\.\d+", "#00ff00", 100)];
+        let result = apply_patterns("No IP here", &patterns);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_apply_patterns_capture_group() {
+        // Pattern with capture group - should only color the group
+        let patterns = vec![make_simple_pattern(r"Status: (\w+)", "#ff0000", 100)];
+        let result = apply_patterns("Status: Up", &patterns);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].start, 8); // "Up" starts at position 8
+        assert_eq!(result[0].end, 10);
+    }
+
+    #[test]
+    fn test_apply_patterns_exclusive() {
+        let patterns = vec![(
+            Regex::new(r"\d+").unwrap(),
+            ResolvedColorSpec::Simple("#ff0000".to_string()),
+            100,
+            true, // exclusive
+        )];
+        let result = apply_patterns("123 456 789", &patterns);
+        // Exclusive should stop after first match
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_apply_patterns_group_colors() {
+        let mut group_colors = HashMap::new();
+        group_colors.insert(1, "#ff0000".to_string());
+        group_colors.insert(2, "#00ff00".to_string());
+
+        let patterns = vec![(
+            Regex::new(r"(\w+)@(\w+)").unwrap(),
+            ResolvedColorSpec::Groups(group_colors),
+            100,
+            false,
+        )];
+        let result = apply_patterns("user@host", &patterns);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].color, "#ff0000"); // "user"
+        assert_eq!(result[1].color, "#00ff00"); // "host"
+    }
+
+    #[test]
+    fn test_compile_patterns_sorts_by_priority() {
+        let toml = r##"
+            [profiles.test]
+            description = "Test"
+            [[profiles.test.patterns]]
+            regex = 'low'
+            color = "#111111"
+            priority = 10
+            [[profiles.test.patterns]]
+            regex = 'high'
+            color = "#222222"
+            priority = 100
+            [[profiles.test.patterns]]
+            regex = 'medium'
+            color = "#333333"
+            priority = 50
+        "##;
+        let config = Config::parse(toml).unwrap();
+        let profile = config.get_profile("test").unwrap();
+        let compiled = compile_patterns(&profile, &config);
+
+        assert_eq!(compiled.len(), 3);
+        assert_eq!(compiled[0].2, 100); // highest priority first
+        assert_eq!(compiled[1].2, 50);
+        assert_eq!(compiled[2].2, 10);
+    }
+}

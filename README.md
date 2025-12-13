@@ -154,19 +154,16 @@ Comprehensive test files are included for each vendor:
 
 ```bash
 # Test Juniper profile
-cat tests/juniper-sample.txt | rt --profile juniper
+cat tests/networking/juniper/common/sample.txt | rt --profile juniper
 
-# Test Cisco profile  
-cat tests/cisco-sample.txt | rt --profile cisco
+# Test Cisco profile
+cat tests/networking/cisco/ios/sample.txt | rt --profile cisco
 
-# Test Arista profile (coming soon)
-cat tests/arista-sample.txt | rt --profile arista
+# Run integration tests
+cargo test --test integration_tests
 
-# Run all tests
-./tests/test-profiles.sh
-
-# Test specific vendor
-./tests/test-profiles.sh cisco
+# Run all tests (unit + integration)
+cargo test
 ```
 
 Test files include realistic output from various commands: interfaces, BGP, OSPF, STP, logging, and more.
@@ -243,10 +240,11 @@ priority = 100
 
 ```
 src/
-├── main.rs      # Core colorization engine, pattern matching
-├── config.rs    # TOML parsing, profile management
+├── main.rs      # CLI interface, stdin processing, output rendering
+├── config.rs    # TOML parsing, profile management, shared types
+├── matching.rs  # Pattern compilation and application
 ├── context.rs   # State machine for context-aware rules
-└── convert.rs   # ChromaTerm YAML converter
+└── convert.rs   # ChromaTerm YAML converter (optional feature)
 ```
 
 ### Performance
@@ -282,11 +280,13 @@ Contributions are welcome! Please feel free to submit issues or pull requests on
 - [x] Dual spectrum system (neutral vs. error-based coloring)
 - [x] Context-aware coloring philosophy
 - [x] Auto-create config on first run
-- [x] Public release to crates.io (v0.1.0) ✨
-- [x] v0.2.0 release with dual spectrum and screenshots ✨
-- [x] v0.2.3 improved documentation for both platforms ✨
+- [x] Public release to crates.io (v0.1.0)
+- [x] v0.2.0 release with dual spectrum and screenshots
+- [x] v0.2.3 improved documentation for both platforms
+- [x] Unit test suite (15 tests for config and matching)
+- [x] Integration test suite (Juniper, Cisco profiles)
 - [ ] Complete Arista EOS profile implementation
-- [ ] Add automated test suite with assertions
+- [ ] Shell completions (bash, zsh, fish)
 - [ ] Performance benchmarks
 - [ ] Additional vendor profiles (Palo Alto, F5, etc.)
 

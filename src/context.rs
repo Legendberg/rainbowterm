@@ -29,17 +29,9 @@ pub struct CompiledContextRule {
 }
 
 /// Runtime state for a single context instance
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ContextState {
     pub variables: HashMap<String, String>,
-}
-
-impl Default for ContextState {
-    fn default() -> Self {
-        Self {
-            variables: HashMap::new(),
-        }
-    }
 }
 
 impl ContextState {
@@ -61,18 +53,10 @@ impl ContextState {
 }
 
 /// Context engine manages multiple contexts
+#[derive(Default)]
 pub struct ContextEngine {
     contexts: Vec<CompiledContext>,
     states: HashMap<String, ContextState>,
-}
-
-impl Default for ContextEngine {
-    fn default() -> Self {
-        Self {
-            contexts: Vec::new(),
-            states: HashMap::new(),
-        }
-    }
 }
 
 impl ContextEngine {
