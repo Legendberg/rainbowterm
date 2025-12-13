@@ -135,19 +135,20 @@ case_insensitive = false
 
 # MAC addresses (simplified without lookbehind/lookahead)
 # Priority 150 to override queue counter patterns (145) that could match first 2 hex digits
+# NOT exclusive - need to match multiple MACs per line (e.g., "Current address: X, Hardware address: Y")
 [[profiles.base.patterns]]
 description = "MAC addresses (colon format)"
 regex = '''\b(?:[\da-fA-F]{1,2}:){5}[\da-fA-F]{1,2}\b'''
 color = "orange-coral"
 priority = 150
-exclusive = true
+exclusive = false
 
 [[profiles.base.patterns]]
 description = "MAC addresses (dot format)"
 regex = '''\b(?:[\da-fA-F]{4}\.){2}[\da-fA-F]{4}\b'''
 color = "orange-coral"
 priority = 150
-exclusive = true
+exclusive = false
 
 # Dates - informational (cyan)
 [[profiles.base.patterns]]
