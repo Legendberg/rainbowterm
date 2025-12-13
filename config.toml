@@ -73,6 +73,51 @@ err-crimson = "#b22222"      # Millions (critical problem)
 err-magenta = "#ff1493"      # Billions (extremely critical)
 err-violet = "#8b008b"       # Trillions+ (catastrophic - darkest/hottest)
 
+# Uptime/stability spectrum (bell curve: short = meh, medium = healthy, too long = concerning)
+uptime-seconds = "#808080"   # Seconds only (just rebooted, dark gray)
+uptime-minutes = "#9e9e9e"   # Minutes (just started, neutral gray)
+uptime-hours = "#90ee90"     # Hours (getting there, light green)
+uptime-days = "#50c878"      # Days (stable, good)
+uptime-weeks = "#228b22"     # Weeks (healthy - peak)
+uptime-months = "#b8d900"    # Months (getting long, greenish-yellow)
+uptime-1yr = "#ff8c00"       # ~1 year (concerning - orange)
+uptime-2yr = "#ff4500"       # 2+ years (needs maintenance - red)
+
+# Time spectrum - for visual parsing of timestamps
+# Hours: 24 distinct colors (one per hour)
+time-00 = "#1e1b4b"          # Midnight - deep indigo
+time-01 = "#312e81"          # 1am - indigo
+time-02 = "#3730a3"          # 2am - violet-indigo
+time-03 = "#4338ca"          # 3am - violet
+time-04 = "#4f46e5"          # 4am - light violet
+time-05 = "#6366f1"          # 5am - lavender
+time-06 = "#0891b2"          # 6am - cyan (dawn)
+time-07 = "#0d9488"          # 7am - teal
+time-08 = "#059669"          # 8am - emerald
+time-09 = "#16a34a"          # 9am - green
+time-10 = "#65a30d"          # 10am - lime
+time-11 = "#a3e635"          # 11am - bright lime
+time-12 = "#facc15"          # Noon - yellow (peak)
+time-13 = "#fbbf24"          # 1pm - amber
+time-14 = "#f59e0b"          # 2pm - orange-amber
+time-15 = "#f97316"          # 3pm - orange
+time-16 = "#ea580c"          # 4pm - dark orange
+time-17 = "#dc2626"          # 5pm - red
+time-18 = "#be185d"          # 6pm - pink
+time-19 = "#a21caf"          # 7pm - fuchsia
+time-20 = "#7c3aed"          # 8pm - purple
+time-21 = "#6d28d9"          # 9pm - deep purple
+time-22 = "#5b21b6"          # 10pm - dark purple
+time-23 = "#4c1d95"          # 11pm - very dark purple
+
+# Minutes/Seconds: 6 intervals (0-9, 10-19, 20-29, 30-39, 40-49, 50-59)
+time-0x = "#94a3b8"          # :0X - slate
+time-1x = "#a78bfa"          # :1X - purple
+time-2x = "#60a5fa"          # :2X - blue
+time-3x = "#34d399"          # :3X - emerald
+time-4x = "#fbbf24"          # :4X - amber
+time-5x = "#f87171"          # :5X - red
+
 # =============================================================================
 # BASE PROFILE - Common patterns for all vendors
 # =============================================================================
@@ -101,6 +146,316 @@ description = "MAC addresses (dot format)"
 regex = '''\b(?:[\da-fA-F]{4}\.){2}[\da-fA-F]{4}\b'''
 color = "orange-coral"
 priority = 50
+exclusive = false
+
+# Dates - informational (cyan)
+[[profiles.base.patterns]]
+description = "ISO dates (YYYY-MM-DD)"
+regex = '''\b(20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))\b'''
+color = "cyan-aqua"
+priority = 40
+exclusive = false
+
+# Month-based dates (Dec 11)
+[[profiles.base.patterns]]
+description = "Syslog dates (Mon DD)"
+regex = '''\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\b'''
+color = "cyan-aqua"
+priority = 40
+exclusive = false
+
+# =============================================================================
+# TIME SPECTRUM - Visual parsing of HH:MM:SS timestamps
+# Hours: 24 distinct colors (one per hour)
+# Minutes/Seconds: 6 intervals (0X, 1X, 2X, 3X, 4X, 5X)
+# =============================================================================
+
+# Hour 00 (midnight) - deep indigo
+[[profiles.base.patterns]]
+description = "Timestamp - hour 00"
+regex = '''\b(00):[0-5]\d:[0-5]\d\b'''
+color = "time-00"
+priority = 38
+exclusive = false
+
+# Hour 01 - indigo
+[[profiles.base.patterns]]
+description = "Timestamp - hour 01"
+regex = '''\b(01):[0-5]\d:[0-5]\d\b'''
+color = "time-01"
+priority = 38
+exclusive = false
+
+# Hour 02 - violet-indigo
+[[profiles.base.patterns]]
+description = "Timestamp - hour 02"
+regex = '''\b(02):[0-5]\d:[0-5]\d\b'''
+color = "time-02"
+priority = 38
+exclusive = false
+
+# Hour 03 - violet
+[[profiles.base.patterns]]
+description = "Timestamp - hour 03"
+regex = '''\b(03):[0-5]\d:[0-5]\d\b'''
+color = "time-03"
+priority = 38
+exclusive = false
+
+# Hour 04 - light violet
+[[profiles.base.patterns]]
+description = "Timestamp - hour 04"
+regex = '''\b(04):[0-5]\d:[0-5]\d\b'''
+color = "time-04"
+priority = 38
+exclusive = false
+
+# Hour 05 - lavender
+[[profiles.base.patterns]]
+description = "Timestamp - hour 05"
+regex = '''\b(05):[0-5]\d:[0-5]\d\b'''
+color = "time-05"
+priority = 38
+exclusive = false
+
+# Hour 06 (dawn) - cyan
+[[profiles.base.patterns]]
+description = "Timestamp - hour 06"
+regex = '''\b(06):[0-5]\d:[0-5]\d\b'''
+color = "time-06"
+priority = 38
+exclusive = false
+
+# Hour 07 - teal
+[[profiles.base.patterns]]
+description = "Timestamp - hour 07"
+regex = '''\b(07):[0-5]\d:[0-5]\d\b'''
+color = "time-07"
+priority = 38
+exclusive = false
+
+# Hour 08 - emerald
+[[profiles.base.patterns]]
+description = "Timestamp - hour 08"
+regex = '''\b(08):[0-5]\d:[0-5]\d\b'''
+color = "time-08"
+priority = 38
+exclusive = false
+
+# Hour 09 - green
+[[profiles.base.patterns]]
+description = "Timestamp - hour 09"
+regex = '''\b(09):[0-5]\d:[0-5]\d\b'''
+color = "time-09"
+priority = 38
+exclusive = false
+
+# Hour 10 - lime
+[[profiles.base.patterns]]
+description = "Timestamp - hour 10"
+regex = '''\b(10):[0-5]\d:[0-5]\d\b'''
+color = "time-10"
+priority = 38
+exclusive = false
+
+# Hour 11 - bright lime
+[[profiles.base.patterns]]
+description = "Timestamp - hour 11"
+regex = '''\b(11):[0-5]\d:[0-5]\d\b'''
+color = "time-11"
+priority = 38
+exclusive = false
+
+# Hour 12 (noon) - yellow
+[[profiles.base.patterns]]
+description = "Timestamp - hour 12"
+regex = '''\b(12):[0-5]\d:[0-5]\d\b'''
+color = "time-12"
+priority = 38
+exclusive = false
+
+# Hour 13 - amber
+[[profiles.base.patterns]]
+description = "Timestamp - hour 13"
+regex = '''\b(13):[0-5]\d:[0-5]\d\b'''
+color = "time-13"
+priority = 38
+exclusive = false
+
+# Hour 14 - orange-amber
+[[profiles.base.patterns]]
+description = "Timestamp - hour 14"
+regex = '''\b(14):[0-5]\d:[0-5]\d\b'''
+color = "time-14"
+priority = 38
+exclusive = false
+
+# Hour 15 - orange
+[[profiles.base.patterns]]
+description = "Timestamp - hour 15"
+regex = '''\b(15):[0-5]\d:[0-5]\d\b'''
+color = "time-15"
+priority = 38
+exclusive = false
+
+# Hour 16 - dark orange
+[[profiles.base.patterns]]
+description = "Timestamp - hour 16"
+regex = '''\b(16):[0-5]\d:[0-5]\d\b'''
+color = "time-16"
+priority = 38
+exclusive = false
+
+# Hour 17 - red
+[[profiles.base.patterns]]
+description = "Timestamp - hour 17"
+regex = '''\b(17):[0-5]\d:[0-5]\d\b'''
+color = "time-17"
+priority = 38
+exclusive = false
+
+# Hour 18 - pink
+[[profiles.base.patterns]]
+description = "Timestamp - hour 18"
+regex = '''\b(18):[0-5]\d:[0-5]\d\b'''
+color = "time-18"
+priority = 38
+exclusive = false
+
+# Hour 19 - fuchsia
+[[profiles.base.patterns]]
+description = "Timestamp - hour 19"
+regex = '''\b(19):[0-5]\d:[0-5]\d\b'''
+color = "time-19"
+priority = 38
+exclusive = false
+
+# Hour 20 - purple
+[[profiles.base.patterns]]
+description = "Timestamp - hour 20"
+regex = '''\b(20):[0-5]\d:[0-5]\d\b'''
+color = "time-20"
+priority = 38
+exclusive = false
+
+# Hour 21 - deep purple
+[[profiles.base.patterns]]
+description = "Timestamp - hour 21"
+regex = '''\b(21):[0-5]\d:[0-5]\d\b'''
+color = "time-21"
+priority = 38
+exclusive = false
+
+# Hour 22 - dark purple
+[[profiles.base.patterns]]
+description = "Timestamp - hour 22"
+regex = '''\b(22):[0-5]\d:[0-5]\d\b'''
+color = "time-22"
+priority = 38
+exclusive = false
+
+# Hour 23 - very dark purple
+[[profiles.base.patterns]]
+description = "Timestamp - hour 23"
+regex = '''\b(23):[0-5]\d:[0-5]\d\b'''
+color = "time-23"
+priority = 38
+exclusive = false
+
+# Minutes - 0X interval (slate)
+[[profiles.base.patterns]]
+description = "Timestamp - minutes :0X"
+regex = '''\b(?:[01]\d|2[0-3]):(0\d):[0-5]\d\b'''
+color = "time-0x"
+priority = 37
+exclusive = false
+
+# Minutes - 1X interval (purple)
+[[profiles.base.patterns]]
+description = "Timestamp - minutes :1X"
+regex = '''\b(?:[01]\d|2[0-3]):(1\d):[0-5]\d\b'''
+color = "time-1x"
+priority = 37
+exclusive = false
+
+# Minutes - 2X interval (blue)
+[[profiles.base.patterns]]
+description = "Timestamp - minutes :2X"
+regex = '''\b(?:[01]\d|2[0-3]):(2\d):[0-5]\d\b'''
+color = "time-2x"
+priority = 37
+exclusive = false
+
+# Minutes - 3X interval (emerald)
+[[profiles.base.patterns]]
+description = "Timestamp - minutes :3X"
+regex = '''\b(?:[01]\d|2[0-3]):(3\d):[0-5]\d\b'''
+color = "time-3x"
+priority = 37
+exclusive = false
+
+# Minutes - 4X interval (amber)
+[[profiles.base.patterns]]
+description = "Timestamp - minutes :4X"
+regex = '''\b(?:[01]\d|2[0-3]):(4\d):[0-5]\d\b'''
+color = "time-4x"
+priority = 37
+exclusive = false
+
+# Minutes - 5X interval (red)
+[[profiles.base.patterns]]
+description = "Timestamp - minutes :5X"
+regex = '''\b(?:[01]\d|2[0-3]):(5\d):[0-5]\d\b'''
+color = "time-5x"
+priority = 37
+exclusive = false
+
+# Seconds - 0X interval (slate)
+[[profiles.base.patterns]]
+description = "Timestamp - seconds :0X"
+regex = '''\b(?:[01]\d|2[0-3]):[0-5]\d:(0\d)\b'''
+color = "time-0x"
+priority = 36
+exclusive = false
+
+# Seconds - 1X interval (purple)
+[[profiles.base.patterns]]
+description = "Timestamp - seconds :1X"
+regex = '''\b(?:[01]\d|2[0-3]):[0-5]\d:(1\d)\b'''
+color = "time-1x"
+priority = 36
+exclusive = false
+
+# Seconds - 2X interval (blue)
+[[profiles.base.patterns]]
+description = "Timestamp - seconds :2X"
+regex = '''\b(?:[01]\d|2[0-3]):[0-5]\d:(2\d)\b'''
+color = "time-2x"
+priority = 36
+exclusive = false
+
+# Seconds - 3X interval (emerald)
+[[profiles.base.patterns]]
+description = "Timestamp - seconds :3X"
+regex = '''\b(?:[01]\d|2[0-3]):[0-5]\d:(3\d)\b'''
+color = "time-3x"
+priority = 36
+exclusive = false
+
+# Seconds - 4X interval (amber)
+[[profiles.base.patterns]]
+description = "Timestamp - seconds :4X"
+regex = '''\b(?:[01]\d|2[0-3]):[0-5]\d:(4\d)\b'''
+color = "time-4x"
+priority = 36
+exclusive = false
+
+# Seconds - 5X interval (red)
+[[profiles.base.patterns]]
+description = "Timestamp - seconds :5X"
+regex = '''\b(?:[01]\d|2[0-3]):[0-5]\d:(5\d)\b'''
+color = "time-5x"
+priority = 36
 exclusive = false
 
 # Priority 1: Critical Operational Keywords
@@ -1578,6 +1933,93 @@ value = "Down"
 color = "gray-medium"
 
 default_color = "gray-medium"
+
+# =============================================================================
+# UPTIME/STABILITY - Bell curve spectrum
+# Short = neutral, Medium = healthy (green), Too long = concerning (needs maintenance)
+# JunOS formats: (3w6d 02:06 ago), (00:23:15 ago), 2:15:23
+# =============================================================================
+
+# 2+ years (104+ weeks) - RED - definitely needs maintenance/security patches
+[[profiles.juniper.patterns]]
+description = "Uptime - 2+ years (needs maintenance)"
+regex = '''\((\d{3,}w\d+d\s+\d{2}:\d{2})\s+ago\)'''
+color = "uptime-2yr"
+priority = 180
+exclusive = true
+
+# ~1 year (52-103 weeks) - ORANGE - concerning
+[[profiles.juniper.patterns]]
+description = "Uptime - ~1 year (concerning)"
+regex = '''\(([5-9]\dw\d+d\s+\d{2}:\d{2})\s+ago\)'''
+color = "uptime-1yr"
+priority = 179
+exclusive = true
+
+# Months (5-51 weeks) - GREENISH-YELLOW - getting long
+[[profiles.juniper.patterns]]
+description = "Uptime - months (5-51 weeks)"
+regex = '''\(((?:[5-9]|[1-4]\d)w\d+d\s+\d{2}:\d{2})\s+ago\)'''
+color = "uptime-months"
+priority = 178
+exclusive = true
+
+# Weeks (1-4 weeks) - DEEP GREEN - healthy (peak)
+[[profiles.juniper.patterns]]
+description = "Uptime - weeks (healthy)"
+regex = '''\(([1-4]w\d+d\s+\d{2}:\d{2})\s+ago\)'''
+color = "uptime-weeks"
+priority = 177
+exclusive = true
+
+# Days (no weeks, just Xd) - GREEN - stable
+[[profiles.juniper.patterns]]
+description = "Uptime - days (stable)"
+regex = '''\((\d+d\s+\d{2}:\d{2})\s+ago\)'''
+color = "uptime-days"
+priority = 176
+exclusive = true
+
+# Hours (01-23:XX:XX ago) - LIGHT GREEN - getting there
+[[profiles.juniper.patterns]]
+description = "Uptime - hours (1-23h)"
+regex = '''\(((?:0[1-9]|1\d|2[0-3]):\d{2}:\d{2})\s+ago\)'''
+color = "uptime-hours"
+priority = 175
+exclusive = true
+
+# Minutes only (00:01-59:XX ago) - GRAY - just started
+[[profiles.juniper.patterns]]
+description = "Uptime - minutes only"
+regex = '''\((00:(?:0[1-9]|[1-5]\d):\d{2})\s+ago\)'''
+color = "uptime-minutes"
+priority = 175
+exclusive = true
+
+# Seconds only (00:00:XX ago) - DARK GRAY - just rebooted
+[[profiles.juniper.patterns]]
+description = "Uptime - seconds only"
+regex = '''\((00:00:\d{2})\s+ago\)'''
+color = "uptime-seconds"
+priority = 175
+exclusive = true
+
+# BGP Last Up/Dwn - hours:minutes:seconds format (various uptimes)
+# Format like "2:15:23" means 2 hours, 15 minutes, 23 seconds
+[[profiles.juniper.patterns]]
+description = "BGP uptime - hours"
+regex = '''\s+(\d{1,2}:\d{2}:\d{2})\s+(?:Establ|Active|Connect|OpenSent|OpenConfirm|Idle)'''
+color = "uptime-hours"
+priority = 174
+exclusive = false
+
+# "never" in BGP uptime = problem
+[[profiles.juniper.patterns]]
+description = "BGP uptime - never (problem)"
+regex = '''\s+(never)\s+(?:Establ|Active|Connect|OpenSent|OpenConfirm|Idle)'''
+color = "status-critical"
+priority = 174
+exclusive = false
 
 # =============================================================================
 # CISCO PROFILE

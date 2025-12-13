@@ -210,3 +210,109 @@ Physical interface: ge-0/0/8, Disabled, Physical link is Down
   Output bytes  : 0
   Input packets : 0
   Output packets: 0
+
+================================================================================
+UPTIME/STABILITY SPECTRUM - Bell curve coloring
+Short = neutral, Medium = healthy (green peak), Too long = concerning
+================================================================================
+
+# Uptime bell curve: starts neutral, peaks green at weeks, then warns about age
+user@router> show system uptime
+Current time: 2024-12-11 10:30:00 PST
+Time Source: LOCAL CLOCK
+System booted: 2024-11-15 08:23:17 PST (3w6d 02:06 ago)
+Protocols started: 2024-11-15 08:25:42 PST (3w6d 02:04 ago)
+Last configured: 2024-12-11 09:45:22 PST (00:44:38 ago) by admin
+
+# Various uptime ranges for spectrum testing:
+# DARK GRAY - Just rebooted (seconds only, 00:00:XX)
+Last flapped   : 2024-12-11 10:29:45 PST (00:00:15 ago)
+
+# GRAY - Just started (minutes only, 00:XX:XX)
+Last flapped   : 2024-12-11 10:25:00 PST (00:05:00 ago)
+Last flapped   : 2024-12-11 09:45:00 PST (00:45:00 ago)
+
+# LIGHT GREEN - Hours (getting stable, 01-23:XX:XX)
+Last flapped   : 2024-12-11 04:30:00 PST (06:00:00 ago)
+Last flapped   : 2024-12-10 12:30:00 PST (22:00:00 ago)
+
+# GREEN - Days (stable)
+Last flapped   : 2024-12-09 10:30:00 PST (2d 00:00 ago)
+
+# DEEP GREEN - Weeks (healthy, peak of bell curve)
+Last flapped   : 2024-11-27 10:30:00 PST (2w0d 00:00 ago)
+System booted: 2024-11-13 08:00:00 PST (4w0d 02:30 ago)
+
+# GREENISH-YELLOW - Months (getting long, 5-51 weeks)
+System booted: 2024-09-01 08:00:00 PST (14w5d 02:30 ago)
+System booted: 2024-06-15 08:00:00 PST (26w0d 02:30 ago)
+System booted: 2024-01-15 08:00:00 PST (47w6d 02:30 ago)
+
+# ORANGE - ~1 year (concerning, 52-99 weeks)
+System booted: 2023-12-11 08:00:00 PST (52w0d 02:30 ago)
+System booted: 2023-06-15 08:00:00 PST (78w3d 02:30 ago)
+
+# RED - 2+ years (needs maintenance, 100+ weeks)
+System booted: 2022-12-11 08:00:00 PST (104w0d 02:30 ago)
+System booted: 2021-06-15 08:00:00 PST (182w3d 02:30 ago)
+
+# BGP uptime examples
+user@router> show bgp summary
+Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Accepted/Damped...
+10.0.0.1              65001     123456     123456       0       2     2:15:23 Establ
+192.168.1.1           65002          0          0       0       5        never Idle
+172.16.0.1            65003      98765      98765       0       0    15:42:11 Establ
+
+# Dates and timestamps (informational coloring)
+# Dates = cyan (informational)
+# Times = spectrum coloring (hours by period, minutes/seconds by interval)
+Dec 11 10:15:23  router rpd[1234]: Example syslog with date and time
+2024-12-11 09:15:23 PST  Major  Alarm with ISO date
+
+================================================================================
+TIME SPECTRUM - Visual parsing of HH:MM:SS
+Hours: 24 distinct colors (midnight indigo → noon yellow → evening purple)
+Minutes/Seconds: 0X slate, 1X purple, 2X blue, 3X emerald, 4X amber, 5X red
+================================================================================
+
+# All 24 hours - each with unique color
+00:30:00  Midnight - deep indigo
+01:30:00  1am - indigo
+02:30:00  2am - violet-indigo
+03:30:00  3am - violet
+04:30:00  4am - light violet
+05:30:00  5am - lavender
+06:30:00  6am (dawn) - cyan
+07:30:00  7am - teal
+08:30:00  8am - emerald
+09:30:00  9am - green
+10:30:00  10am - lime
+11:30:00  11am - bright lime
+12:30:00  Noon - yellow (peak)
+13:30:00  1pm - amber
+14:30:00  2pm - orange-amber
+15:30:00  3pm - orange
+16:30:00  4pm - dark orange
+17:30:00  5pm - red
+18:30:00  6pm - pink
+19:30:00  7pm - fuchsia
+20:30:00  8pm - purple
+21:30:00  9pm - deep purple
+22:30:00  10pm - dark purple
+23:30:00  11pm - very dark purple
+
+# Minute intervals test (all same hour 10:XX:00)
+10:05:00  Minutes :05 (0X slate)
+10:15:00  Minutes :15 (1X purple)
+10:25:00  Minutes :25 (2X blue)
+10:35:00  Minutes :35 (3X emerald)
+10:45:00  Minutes :45 (4X amber)
+10:55:00  Minutes :55 (5X red)
+
+# Second intervals test (all same hour:minute 10:00:XX)
+10:00:05  Seconds :05 (0X slate)
+10:00:15  Seconds :15 (1X purple)
+10:00:25  Seconds :25 (2X blue)
+10:00:35  Seconds :35 (3X emerald)
+10:00:45  Seconds :45 (4X amber)
+10:00:55  Seconds :55 (5X red)
