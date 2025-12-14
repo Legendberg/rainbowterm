@@ -110,7 +110,7 @@ Multi-line state machine tracks context across output:
 # Install from crates.io - creates 'rt' command
 cargo install rainbowterm
 
-# Config automatically created at ~/.config/rainbowterm/config.toml on first run
+# Config automatically created on first run (see Configuration section for paths)
 # No manual setup needed!
 ```
 
@@ -193,7 +193,21 @@ Notice how `1298458` appears twice with different colors - once as traffic (neut
 
 ### Configuration
 
-Default config auto-created at: `~/.config/rainbowterm/config.toml`
+On first run, RainbowTerm creates a default config file at the OS-standard location:
+
+| OS | Config Path |
+|----|-------------|
+| **Linux** | `~/.config/rainbowterm/config.toml` |
+| **macOS** | `~/Library/Application Support/rainbowterm/config.toml` |
+| **Windows** | `C:\Users\<user>\AppData\Roaming\rainbowterm\config.toml` |
+
+Use `-c <path>` to specify a custom config file.
+
+**Tip:** The config file includes a version comment at line 3. Check it to verify you're using the latest patterns:
+```bash
+head -3 ~/.config/rainbowterm/config.toml  # Linux
+head -3 ~/Library/Application\ Support/rainbowterm/config.toml  # macOS
+```
 
 ```toml
 # Set default profile
