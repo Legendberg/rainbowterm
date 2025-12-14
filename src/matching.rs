@@ -181,6 +181,126 @@ mod tests {
     }
 
     #[test]
+    fn test_alternation_capture() {
+        // Test that alternation inside capture groups works correctly
+        let pattern = r"(?i)(Input errors|Output errors|Errors|Drops|CRC errors):\s+(0)\b";
+        let regex = Regex::new(pattern).unwrap();
+
+        let text = "Input errors: 0";
+        let caps = regex.captures(text).unwrap();
+
+        assert!(caps.get(1).is_some(), "Group 1 should match");
+        assert!(caps.get(2).is_some(), "Group 2 should match");
+        assert_eq!(caps.get(1).unwrap().as_str(), "Input errors");
+        assert_eq!(caps.get(2).unwrap().as_str(), "0");
+
+        let text2 = "Drops: 0";
+        let caps2 = regex.captures(text2).unwrap();
+        assert_eq!(caps2.get(1).unwrap().as_str(), "Drops");
+        assert_eq!(caps2.get(2).unwrap().as_str(), "0");
+    }
+
+    #[test]
+    fn test_alternation_capture_all_variants() {
+        // Test all alternation options to ensure they all capture correctly
+        let pattern = r"(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors):\s+(0)\b";
+        let regex = Regex::new(pattern).unwrap();
+
+        let test_cases = vec![
+            ("Input errors: 0", "Input errors"),
+            ("Output errors: 0", "Output errors"),
+            ("Errors: 0", "Errors"),
+            ("Drops: 0", "Drops"),
+            ("Framing errors: 0", "Framing errors"),
+            ("Runts: 0", "Runts"),
+            ("Giants: 0", "Giants"),
+            ("Collisions: 0", "Collisions"),
+            ("CRC errors: 0", "CRC errors"),
+        ];
+
+        for (input, expected_label) in test_cases {
+            let caps = regex.captures(input).expect(&format!("Should match: {}", input));
+            assert_eq!(
+                caps.get(1).unwrap().as_str(),
+                expected_label,
+                "Label should match for: {}",
+                input
+            );
+            assert_eq!(
+                caps.get(2).unwrap().as_str(),
+                "0",
+                "Number should be 0 for: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_apply_patterns_alternation_groups() {
+        // Test apply_patterns with alternation inside capture groups
+        let mut group_colors = HashMap::new();
+        group_colors.insert(1, "#888888".to_string()); // gray for label
+        group_colors.insert(2, "#00ff00".to_string()); // green for 0
+
+        let patterns = vec![(
+            Regex::new(r"(?i)(Input errors|Output errors|Errors|Drops):\s+(0)\b").unwrap(),
+            ResolvedColorSpec::Groups(group_colors),
+            175,
+            false,
+        )];
+
+        let result = apply_patterns("Input errors: 0", &patterns);
+        assert_eq!(result.len(), 2, "Should have 2 colored ranges");
+
+        // First range should be "Input errors" (gray)
+        assert_eq!(result[0].start, 0);
+        assert_eq!(result[0].end, 12);
+        assert_eq!(result[0].color, "#888888");
+
+        // Second range should be "0" (green)
+        assert_eq!(result[1].start, 14);
+        assert_eq!(result[1].end, 15);
+        assert_eq!(result[1].color, "#00ff00");
+    }
+
+    #[test]
+    fn test_apply_patterns_multiple_patterns_same_text() {
+        // Test with TWO patterns matching same text - simulates the actual config
+        let mut group_colors = HashMap::new();
+        group_colors.insert(1, "#888888".to_string()); // gray for label
+        group_colors.insert(2, "#00ff00".to_string()); // green for 0
+
+        // Pattern 1: semantic pattern with capturing groups (priority 175)
+        let semantic = (
+            Regex::new(r"(?i)(Input errors|Output errors|Errors|Drops):\s+(0)\b").unwrap(),
+            ResolvedColorSpec::Groups(group_colors),
+            175,
+            false,
+        );
+
+        // Pattern 2: older pattern with non-capturing group (priority 168)
+        let older = (
+            Regex::new(r"(?i)(?:Input errors|Output errors|Errors|Drops)\s*:\s+(0)\b").unwrap(),
+            ResolvedColorSpec::Simple("#00ff00".to_string()),
+            168,
+            false,
+        );
+
+        // Patterns sorted by priority (highest first)
+        let patterns = vec![semantic, older];
+
+        let result = apply_patterns("Input errors: 0", &patterns);
+
+        // Should have 3 ranges: (0,12,gray), (14,15,green), (14,15,green)
+        assert_eq!(result.len(), 3, "Should have 3 colored ranges before dedup");
+
+        // Verify first range is "Input errors" (gray)
+        let input_errors_range = result.iter().find(|r| r.start == 0).unwrap();
+        assert_eq!(input_errors_range.end, 12);
+        assert_eq!(input_errors_range.color, "#888888");
+    }
+
+    #[test]
     fn test_compile_patterns_sorts_by_priority() {
         let toml = r##"
             [profiles.test]

@@ -1044,69 +1044,20 @@ exclusive = false
 #   - MTU errors, Policed discards, Aged packets
 # =============================================================================
 
-# Error counter - Zero (green, healthy state - no errors is GOOD!)
-[[profiles.juniper.patterns]]
-description = "Error counter - Zero (no problems)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(0)\b'''
-color = "status-good"
-priority = 168
-exclusive = false
-
-# Error counter - Trillions (13-15 digits): Beyond catastrophic (if you see this, something is very wrong)
-[[profiles.juniper.patterns]]
-description = "Error counter - Trillions (catastrophic)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
-color = { "1" = "err-violet", "2" = "err-magenta", "3" = "err-darkred", "4" = "err-crimson", "5" = "err-yellow" }
-priority = 166
-exclusive = false
-
-# Error counter - Billions (10-12 digits): Extremely critical
-[[profiles.juniper.patterns]]
-description = "Error counter - Billions (extremely critical)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
-color = { "1" = "err-magenta", "2" = "err-darkred", "3" = "err-crimson", "4" = "err-yellow" }
-priority = 165
-exclusive = false
-
-# Error counter - Millions (7-9 digits): crimson → dark red → yellow (rightmost always yellow)
-[[profiles.juniper.patterns]]
-description = "Error counter - Millions (critical)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{1,3})(\d{3})(\d{3})\b'''
-color = { "1" = "err-crimson", "2" = "err-darkred", "3" = "err-yellow" }
-priority = 164
-exclusive = false
-
-# Error counter - Hundred thousands (6 digits): dark red → yellow (rightmost always yellow)
-[[profiles.juniper.patterns]]
-description = "Error counter - Hundred thousands (severe)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{3})(\d{3})\b'''
-color = { "1" = "err-darkred", "2" = "err-yellow" }
-priority = 163
-exclusive = false
-
-# Error counter - Ten thousands (5 digits): red → yellow (rightmost always yellow)
-[[profiles.juniper.patterns]]
-description = "Error counter - Ten thousands (serious)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{2})(\d{3})\b'''
-color = { "1" = "err-red", "2" = "err-yellow" }
-priority = 162
-exclusive = false
-
-# Error counter - Thousands (4-6 digits): orange → yellow
-[[profiles.juniper.patterns]]
-description = "Error counter - Thousands (moderate)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{1,3})(\d{3})\b'''
-color = { "1" = "err-orange", "2" = "err-yellow" }
-priority = 161
-exclusive = false
-
-# Error counter - Hundreds (1-3 digits): yellow only
-[[profiles.juniper.patterns]]
-description = "Error counter - Hundreds (minor)"
-regex = '''(?i)(?:Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions)\s*:\s+(\d{1,3})\b'''
-color = "err-yellow"
-priority = 160
-exclusive = false
+# =============================================================================
+# OLDER ERROR COUNTER PATTERNS - DISABLED in favor of semantic patterns
+# The semantic patterns (priority 172-175) handle error counters with proper
+# label coloring (gray when 0, red when >0) plus magnitude spectrum for numbers.
+# These older patterns only colored numbers, not labels.
+# =============================================================================
+# # Error counter - Zero (green, healthy state - no errors is GOOD!)
+# [[profiles.juniper.patterns]]
+# description = "Error counter - Zero (no problems)"
+# regex = '''(?i)(?:Input errors|...):\s*:\s+(0)\b'''
+# color = "status-good"
+# priority = 168
+#
+# [Trillions through Hundreds patterns removed - replaced by semantic patterns]
 
 # Speed patterns
 [[profiles.juniper.patterns]]
@@ -1727,6 +1678,70 @@ color = "status-warning"
 priority = 150
 exclusive = false
 
+# =============================================================================
+# SEMANTIC ERROR STATES - "Error: None" = healthy
+# =============================================================================
+
+# Any "X Error: None" pattern indicates healthy state (e.g., BPDU Error: None)
+[[profiles.juniper.patterns]]
+description = "Error: None (healthy)"
+regex = '''(?i)([\w-]+\s+Error):\s+(None)\b'''
+color = { "1" = "status-good", "2" = "status-good" }
+priority = 205
+exclusive = false
+
+# Feature flags that are disabled/none (neutral state)
+[[profiles.juniper.patterns]]
+description = "Feature disabled (neutral)"
+regex = '''(?i)(Loopback|Source filtering|Flow control):\s+(Disabled|None)\b'''
+color = { "1" = "gray-medium", "2" = "gray-medium" }
+priority = 205
+exclusive = false
+
+# =============================================================================
+# ERROR COUNTERS - Semantic coloring with magnitude spectrum
+# Label: gray when 0 (healthy), red when >0 (problem)
+# Number: green when 0, error spectrum when >0
+# =============================================================================
+
+# All error types list for reference:
+# Input errors, Output errors, Errors, Drops, Framing errors, Runts, Giants,
+# Collisions, CRC errors, FIFO errors, MTU errors, Resource errors,
+# Policed discards, Aged packets, L2 channel errors, L2 mismatch timeouts,
+# L3 incompletes, HS link CRC errors, Carrier transitions
+
+# Error counter: 0 (healthy) - gray label + green 0
+[[profiles.juniper.patterns]]
+description = "Error counter: 0 (healthy)"
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(0)\b'''
+color = { "1" = "gray-medium", "2" = "status-good" }
+priority = 175
+exclusive = false
+
+# Error counter - millions (7-9 digits): red label + magnitude spectrum
+[[profiles.juniper.patterns]]
+description = "Error counter - millions (critical)"
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})(\d{3})\b'''
+color = { "1" = "status-critical", "2" = "err-crimson", "3" = "err-red", "4" = "err-orange" }
+priority = 174
+exclusive = false
+
+# Error counter - thousands (4-6 digits): red label + magnitude spectrum
+[[profiles.juniper.patterns]]
+description = "Error counter - thousands (moderate)"
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})\b'''
+color = { "1" = "status-critical", "2" = "err-orange", "3" = "err-yellow" }
+priority = 173
+exclusive = false
+
+# Error counter - hundreds (1-3 digits): red label + yellow number
+[[profiles.juniper.patterns]]
+description = "Error counter - hundreds (minor)"
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+([1-9]\d{0,2})\b'''
+color = { "1" = "status-critical", "2" = "err-yellow" }
+priority = 172
+exclusive = false
+
 [[profiles.juniper.patterns]]
 description = "Interface present/running"
 regex = '''\b(Present)\b'''
@@ -1786,85 +1801,72 @@ default_color = "status-good"
 # Non-zero errors on DOWN interface are historical (less urgent)
 # =============================================================================
 
-# Input errors with non-zero count
-[[profiles.juniper.contexts.rules]]
-pattern = '''(?i)Input errors:\s*([1-9]\d*)'''
-state_key = "physical_link"
-priority = 195
+# =============================================================================
+# ERROR COUNTERS - Context rules DISABLED in favor of magnitude spectrum patterns
+# The semantic error counter patterns (priority 172-175) handle error counters
+# with proper color gradients: red label + magnitude spectrum for the number.
+# Context rules would override these and color the entire line in one color.
+# =============================================================================
 
-[[profiles.juniper.contexts.rules.colors]]
-value = "Up"
-color = "status-critical"
+# Input errors with non-zero count - DISABLED
+# [[profiles.juniper.contexts.rules]]
+# pattern = '''(?i)Input errors:\s*([1-9]\d*)'''
+# state_key = "physical_link"
+# priority = 195
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Up"
+# color = "status-critical"
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Down"
+# color = "status-warning"
+# default_color = "status-warning"
 
-[[profiles.juniper.contexts.rules.colors]]
-value = "Down"
-color = "status-warning"
+# Output errors with non-zero count - DISABLED
+# [[profiles.juniper.contexts.rules]]
+# pattern = '''(?i)Output errors:\s*([1-9]\d*)'''
+# state_key = "physical_link"
+# priority = 195
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Up"
+# color = "status-critical"
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Down"
+# color = "status-warning"
+# default_color = "status-warning"
 
-default_color = "status-warning"
+# CRC errors with non-zero count - DISABLED
+# [[profiles.juniper.contexts.rules]]
+# pattern = '''(?i)CRC(?:\s+errors)?:\s*([1-9]\d*)'''
+# state_key = "physical_link"
+# priority = 195
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Up"
+# color = "status-critical"
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Down"
+# color = "status-warning"
+# default_color = "status-warning"
 
-# Output errors with non-zero count
-[[profiles.juniper.contexts.rules]]
-pattern = '''(?i)Output errors:\s*([1-9]\d*)'''
-state_key = "physical_link"
-priority = 195
+# Framing errors with non-zero count - DISABLED
+# [[profiles.juniper.contexts.rules]]
+# pattern = '''(?i)Framing errors:\s*([1-9]\d*)'''
+# state_key = "physical_link"
+# priority = 195
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Up"
+# color = "status-critical"
+# [[profiles.juniper.contexts.rules.colors]]
+# value = "Down"
+# color = "status-warning"
+# default_color = "status-warning"
 
-[[profiles.juniper.contexts.rules.colors]]
-value = "Up"
-color = "status-critical"
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Down"
-color = "status-warning"
-
-default_color = "status-warning"
-
-# CRC errors with non-zero count
-[[profiles.juniper.contexts.rules]]
-pattern = '''(?i)CRC(?:\s+errors)?:\s*([1-9]\d*)'''
-state_key = "physical_link"
-priority = 195
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Up"
-color = "status-critical"
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Down"
-color = "status-warning"
-
-default_color = "status-warning"
-
-# Framing errors with non-zero count
-[[profiles.juniper.contexts.rules]]
-pattern = '''(?i)Framing errors:\s*([1-9]\d*)'''
-state_key = "physical_link"
-priority = 195
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Up"
-color = "status-critical"
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Down"
-color = "status-warning"
-
-default_color = "status-warning"
-
-# Drops with non-zero count
-[[profiles.juniper.contexts.rules]]
-pattern = '''(?i)(?:Input|Output)?\s*Drops:\s*([1-9]\d*)'''
-state_key = "physical_link"
-priority = 195
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Up"
-color = "status-critical"
-
-[[profiles.juniper.contexts.rules.colors]]
-value = "Down"
-color = "status-warning"
-
-default_color = "status-warning"
+# Drops with non-zero count - DISABLED in favor of magnitude spectrum patterns
+# The magnitude spectrum patterns (priority 167-170) handle Drops with proper
+# color gradients based on count size. Context rules would override these.
+# [[profiles.juniper.contexts.rules]]
+# pattern = '''(?i)(?:Input|Output)?\s*Drops:\s*([1-9]\d*)'''
+# state_key = "physical_link"
+# priority = 195
 
 # =============================================================================
 # ZERO TRAFFIC - Context-aware (UP interface = suspicious, DOWN = expected)

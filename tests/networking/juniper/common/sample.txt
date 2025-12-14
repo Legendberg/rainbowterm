@@ -207,6 +207,16 @@ Physical interface: ge-0/0/6, Disabled, Physical link is Down
   Framing errors: 6666
   Drops: 5555
 
+# Zero errors - healthy state (gray label + green 0)
+user@router> show interfaces extensive ge-0/0/9
+Physical interface: ge-0/0/9, Enabled, Physical link is Up
+  Device flags   : Present Running
+  Input errors:  0
+  Output errors: 0
+  CRC errors:    0
+  Framing errors: 0
+  Drops: 0
+
 # Zero traffic: suspicious on UP interface, expected on DOWN
 user@router> show interfaces extensive ge-0/0/7
 Physical interface: ge-0/0/7, Enabled, Physical link is Up
