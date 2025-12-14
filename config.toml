@@ -63,6 +63,7 @@ mag-yellow = "#ffff00"       # Billions
 mag-green = "#00ff7f"        # Millions
 mag-blue = "#00bfff"         # Thousands
 mag-purple = "#d946ef"       # Hundreds (rightmost 3 digits, 1-999)
+mag-pink = "#ff69b4"         # Units (rightmost 3 digits for very large numbers)
 
 # Error/problem spectrum colors (warm colors, increasing severity - BAD)
 err-yellow = "#ffd700"       # Tens/Hundreds (minor issue)
@@ -882,6 +883,22 @@ color = "gray-medium"
 priority = 161
 exclusive = true
 
+# Quintillions (19-21 digits): red → orange → yellow → green → blue → purple → pink
+[[profiles.juniper.patterns]]
+description = "Quintillions range (19-21 digits)"
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "status-critical", "2" = "mag-orange", "3" = "mag-yellow", "4" = "mag-green", "5" = "mag-blue", "6" = "mag-purple", "7" = "mag-pink" }
+priority = 157
+exclusive = true
+
+# Quadrillions (16-18 digits): orange-red → orange → yellow → green → blue → purple
+[[profiles.juniper.patterns]]
+description = "Quadrillions range (16-18 digits)"
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "err-crimson", "2" = "mag-orange", "3" = "mag-yellow", "4" = "mag-green", "5" = "mag-blue", "6" = "mag-purple" }
+priority = 156
+exclusive = true
+
 # Trillions (13-15 digits): orange → yellow → green → blue → purple
 [[profiles.juniper.patterns]]
 description = "Trillions range (13-15 digits)"
@@ -1100,9 +1117,10 @@ exclusive = true
 # =============================================================================
 
 # Established = Peer is up and exchanging routes - HEALTHY
+# Note: Juniper truncates to "Establ" in some outputs
 [[profiles.juniper.patterns]]
 description = "BGP Established state (healthy)"
-regex = '''\b(Established)\b'''
+regex = '''\b(Established|Establ)\b'''
 color = "status-excellent"
 priority = 90
 exclusive = true
