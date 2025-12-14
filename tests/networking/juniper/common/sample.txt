@@ -55,6 +55,33 @@ Physical interface: ge-0/0/0
     Module voltage                            :  3.2950 V
     Receiver signal average optical power     :  0.7200 mW / -1.43 dBm
 
+# Optics with various signal levels for testing
+user@router> show interfaces diagnostics optics xe-0/0/1
+Physical interface: xe-0/0/1
+    Laser bias current                        :  8.200 mA
+    Laser output power                        :  0.5000 mW / -3.01 dBm
+    Module temperature                        :  38 degrees C / 100 degrees F
+    Module voltage                            :  3.3100 V
+    Receiver signal average optical power     :  0.1000 mW / -10.00 dBm
+
+# Optics with weak signal (warning level)
+user@router> show interfaces diagnostics optics xe-0/0/2
+Physical interface: xe-0/0/2
+    Laser bias current                        :  12.100 mA
+    Laser output power                        :  0.3000 mW / -5.23 dBm
+    Module temperature                        :  45 degrees C / 113 degrees F
+    Module voltage                            :  3.2800 V
+    Receiver signal average optical power     :  0.0100 mW / -20.00 dBm
+
+# Optics with critical signal (failing)
+user@router> show interfaces diagnostics optics xe-0/0/3
+Physical interface: xe-0/0/3
+    Laser bias current                        :  25.500 mA
+    Laser output power                        :  0.2000 mW / -6.99 dBm
+    Module temperature                        :  65 degrees C / 149 degrees F
+    Module voltage                            :  3.0500 V
+    Receiver signal average optical power     :  0.0010 mW / -30.00 dBm
+
 user@router> show bgp summary
 Groups: 2 Peers: 4 Down peers: 1
 Table          Tot Paths  Act Paths Suppressed    History Damp State    Pending

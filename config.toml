@@ -1190,6 +1190,20 @@ color = "gray-medium"
 priority = 85
 exclusive = false
 
+[[profiles.juniper.patterns]]
+description = "STP Root role (special - this port leads to root bridge)"
+regex = '''\b(ROOT)\b'''
+color = "yellow-gold"
+priority = 86
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "STP Alternate/Backup role"
+regex = '''\b(ALT|ALTN|BKP|BKUP)\b'''
+color = "status-caution"
+priority = 85
+exclusive = false
+
 # STP Port Costs (lower = better path)
 [[profiles.juniper.patterns]]
 description = "STP Cost - Excellent (1000-2000, typically 10G+)"
@@ -1216,6 +1230,35 @@ exclusive = false
 description = "STP Cost - Poor (200000+, 100M or slower)"
 regex = '''\b(200000|2000000|20000000|100000000|200000000)\b'''
 color = "status-critical"
+priority = 85
+exclusive = false
+
+# Ethernet Switching States (show ethernet-switching interfaces)
+[[profiles.juniper.patterns]]
+description = "Ethernet Switching - Unblocked (forwarding traffic)"
+regex = '''\b(unblocked)\b'''
+color = "status-good"
+priority = 90
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Ethernet Switching - Blocked (not forwarding)"
+regex = '''\b(blocked)\b'''
+color = "status-warning"
+priority = 90
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Ethernet Switching - Tagged VLAN"
+regex = '''\b(tagged)\b'''
+color = "cyan-bright"
+priority = 85
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Ethernet Switching - Untagged/Native VLAN"
+regex = '''\b(untagged)\b'''
+color = "gray-light"
 priority = 85
 exclusive = false
 
@@ -1294,6 +1337,91 @@ description = "Temperature - Normal (<60C)"
 regex = '''([0-5][0-9])\s+(degrees\s+)?C\b'''
 color = "status-good"
 priority = 94
+exclusive = false
+
+# =============================================================================
+# OPTICS DIAGNOSTICS (show interfaces diagnostics optics)
+# =============================================================================
+
+# Optical Power Levels (dBm) - Rx and Tx power thresholds
+# Note: dBm is logarithmic, -10 dBm = 0.1 mW, -20 dBm = 0.01 mW
+# Higher (less negative) is stronger signal
+
+# Critical: Signal too weak (< -25 dBm) - likely link failure imminent
+[[profiles.juniper.patterns]]
+description = "Optical Power - Critical (< -25 dBm)"
+regex = '''(-(?:2[5-9]|[3-9][0-9])\.?\d*)\s*dBm'''
+color = "status-critical"
+priority = 97
+exclusive = false
+
+# Warning: Signal weak (-20 to -24.99 dBm) - degraded but functional
+[[profiles.juniper.patterns]]
+description = "Optical Power - Warning (-20 to -25 dBm)"
+regex = '''(-(?:2[0-4])\.?\d*)\s*dBm'''
+color = "status-warning"
+priority = 97
+exclusive = false
+
+# Caution: Signal marginal (-15 to -19.99 dBm)
+[[profiles.juniper.patterns]]
+description = "Optical Power - Marginal (-15 to -20 dBm)"
+regex = '''(-(?:1[5-9])\.?\d*)\s*dBm'''
+color = "status-caution"
+priority = 97
+exclusive = false
+
+# Good: Normal signal (-10 to -14.99 dBm)
+[[profiles.juniper.patterns]]
+description = "Optical Power - Good (-10 to -15 dBm)"
+regex = '''(-(?:1[0-4])\.?\d*)\s*dBm'''
+color = "status-good"
+priority = 97
+exclusive = false
+
+# Excellent: Strong signal (> -10 dBm, including positive values)
+[[profiles.juniper.patterns]]
+description = "Optical Power - Excellent (> -10 dBm)"
+regex = '''(-[0-9]\.?\d*|\+?\d+\.?\d*)\s*dBm'''
+color = "status-excellent"
+priority = 96
+exclusive = false
+
+# SFP Module Voltage (normal range 3.1-3.5V for most SFPs)
+[[profiles.juniper.patterns]]
+description = "SFP Voltage - Normal (3.1-3.5V)"
+regex = '''(3\.[1-5]\d*)\s*V\b'''
+color = "status-good"
+priority = 93
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "SFP Voltage - Warning (outside normal range)"
+regex = '''([0-2]\.\d+|3\.[06-9]\d*|[4-9]\.\d+)\s*V\b'''
+color = "status-warning"
+priority = 93
+exclusive = false
+
+# Laser Bias Current (typical range 5-15 mA, varies by optic type)
+[[profiles.juniper.patterns]]
+description = "Laser Bias - Normal (2-20 mA)"
+regex = '''([2-9]|1[0-9]|20)\.?\d*\s*mA\b'''
+color = "status-good"
+priority = 92
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Laser Bias - High (>20 mA, aging laser)"
+regex = '''(2[1-9]|[3-9][0-9]|[1-9][0-9]{2})\.?\d*\s*mA\b'''
+color = "status-warning"
+priority = 92
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "Laser Bias - Low (<2 mA, possibly failing)"
+regex = '''([01]\.?\d*)\s*mA\b'''
+color = "status-caution"
+priority = 92
 exclusive = false
 
 # Storage/Disk Capacity Warnings (show system storage)
