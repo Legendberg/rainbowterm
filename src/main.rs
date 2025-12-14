@@ -103,13 +103,27 @@ fn main() -> anyhow::Result<()> {
     // Embedded default config
     const DEFAULT_CONFIG: &str = include_str!("../config.toml");
 
-    // Create config file on first run if it doesn't exist
-    if !config_path.exists() && cli.config.is_none() {
+    // Always use embedded config for default path (ensures users get latest patterns)
+    // If user specified custom config with -c, use that instead
+    if cli.config.is_none() {
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
+
+        // Backup existing config if present (user may have customizations)
+        if config_path.exists() {
+            let backup_path = config_path.with_extension("toml.backup");
+            std::fs::copy(&config_path, &backup_path)?;
+            eprintln!(
+                "Updated config at {} (previous config backed up to {})",
+                config_path.display(),
+                backup_path.display()
+            );
+        } else {
+            eprintln!("Created default config at {}", config_path.display());
+        }
+
         std::fs::write(&config_path, DEFAULT_CONFIG)?;
-        eprintln!("Created default config at {}", config_path.display());
     }
 
     // Load config from file or use embedded default
