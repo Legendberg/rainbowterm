@@ -103,27 +103,37 @@ fn main() -> anyhow::Result<()> {
     // Embedded default config
     const DEFAULT_CONFIG: &str = include_str!("../config.toml");
 
-    // Always use embedded config for default path (ensures users get latest patterns)
+    // Ensure config is up-to-date with embedded default (only for default path)
     // If user specified custom config with -c, use that instead
     if cli.config.is_none() {
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        // Backup existing config if present (user may have customizations)
-        if config_path.exists() {
-            let backup_path = config_path.with_extension("toml.backup");
-            std::fs::copy(&config_path, &backup_path)?;
-            eprintln!(
-                "Updated config at {} (previous config backed up to {})",
-                config_path.display(),
-                backup_path.display()
-            );
+        // Check if config needs updating (doesn't exist or differs from embedded)
+        let needs_update = if config_path.exists() {
+            let existing = std::fs::read_to_string(&config_path).unwrap_or_default();
+            existing != DEFAULT_CONFIG
         } else {
-            eprintln!("Created default config at {}", config_path.display());
-        }
+            true
+        };
 
-        std::fs::write(&config_path, DEFAULT_CONFIG)?;
+        if needs_update {
+            // Backup existing config if present (user may have customizations)
+            if config_path.exists() {
+                let backup_path = config_path.with_extension("toml.backup");
+                std::fs::copy(&config_path, &backup_path)?;
+                eprintln!(
+                    "Updated config at {} (previous config backed up to {})",
+                    config_path.display(),
+                    backup_path.display()
+                );
+            } else {
+                eprintln!("Created default config at {}", config_path.display());
+            }
+
+            std::fs::write(&config_path, DEFAULT_CONFIG)?;
+        }
     }
 
     // Load config from file or use embedded default
