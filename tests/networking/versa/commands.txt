@@ -1,0 +1,215 @@
+# Versa SD-WAN Sample Collection Commands
+# Run these commands on Versa FlexVNF/Director to gather output for rainbowterm test files
+
+# ============================================================
+# SYSTEM & HARDWARE
+# ============================================================
+show system status
+show system info
+show system uptime
+show system cpu
+show system memory
+show system disk
+show system processes
+show hardware
+show hardware inventory
+show software
+show software version
+
+# ============================================================
+# INTERFACES
+# ============================================================
+show interfaces
+show interfaces brief
+show interfaces detail
+show interfaces statistics
+show interfaces vni-*
+show interfaces tvi-*
+show interfaces ppp*
+show interfaces loopback
+
+# ============================================================
+# SDWAN / TUNNELS
+# ============================================================
+show sdwan status
+show sdwan tunnels
+show sdwan tunnels detail
+show sdwan tunnels statistics
+show sdwan tunnels summary
+show sdwan control connections
+show sdwan data-path statistics
+show sdwan site
+show sdwan site-paths
+show sdwan path-statistics
+
+# ============================================================
+# ORGANIZATIONS / TENANTS
+# ============================================================
+show orgs
+show orgs detail
+show org-services
+show appliance-groups
+
+# ============================================================
+# ROUTING
+# ============================================================
+show routing
+show routing table
+show routing summary
+show routing protocol
+show route
+show route static
+show route connected
+show route bgp
+
+# ============================================================
+# BGP
+# ============================================================
+show bgp summary
+show bgp neighbor
+show bgp neighbor detail
+show bgp routes
+show bgp routes advertised
+show bgp routes received
+show bgp statistics
+
+# ============================================================
+# OSPF
+# ============================================================
+show ospf overview
+show ospf neighbor
+show ospf interface
+show ospf database
+show ospf routes
+show ospf statistics
+
+# ============================================================
+# IPSEC / VPN
+# ============================================================
+show ipsec
+show ipsec tunnels
+show ipsec tunnels detail
+show ipsec tunnels statistics
+show ipsec sa
+show ipsec policy
+show ike sa
+show ike statistics
+
+# ============================================================
+# SECURITY / POLICIES
+# ============================================================
+show security zones
+show security policies
+show security policies detail
+show security policies hit-count
+show access-policies
+show access-policies statistics
+show sdwan-policies
+show traffic-steering-policies
+
+# ============================================================
+# NAT
+# ============================================================
+show nat rules
+show nat statistics
+show nat translations
+show cgnat statistics
+
+# ============================================================
+# SESSIONS / FLOWS
+# ============================================================
+show sessions
+show sessions detail
+show sessions summary
+show sessions statistics
+show flows
+show flows statistics
+
+# ============================================================
+# APPLICATION / DPI
+# ============================================================
+show applications
+show application-identification
+show app-route statistics
+
+# ============================================================
+# QOS
+# ============================================================
+show qos
+show qos interface
+show qos statistics
+show traffic-shaping
+show traffic-shaping statistics
+
+# ============================================================
+# HIGH AVAILABILITY
+# ============================================================
+show ha status
+show ha statistics
+show ha peer
+show ha interface
+
+# ============================================================
+# ALARMS / EVENTS
+# ============================================================
+show alarms
+show alarms active
+show alarms history
+show events
+show events recent
+
+# ============================================================
+# LOGS
+# ============================================================
+show log messages
+show log system
+show log audit
+show log traffic
+
+# ============================================================
+# NTP / TIME
+# ============================================================
+show ntp
+show ntp status
+show clock
+
+# ============================================================
+# SNMP
+# ============================================================
+show snmp
+show snmp statistics
+
+# ============================================================
+# AAA / USERS
+# ============================================================
+show users
+show users active
+show aaa servers
+show authentication
+
+# ============================================================
+# CERTIFICATES
+# ============================================================
+show certificates
+show certificates detail
+show pki
+
+# ============================================================
+# ANALYTICS / STATISTICS
+# ============================================================
+show analytics
+show analytics summary
+show statistics system
+show statistics interface
+show statistics tunnel
+
+# ============================================================
+# DIRECTOR SPECIFIC
+# ============================================================
+show controller status
+show controller devices
+show controller devices detail
+show controller templates
+show controller workflows
+show controller appliances
+show director analytics

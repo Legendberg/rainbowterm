@@ -1,0 +1,333 @@
+# Cisco Sample Collection Commands
+# Run these commands to gather output for rainbowterm test files
+# Covers IOS, IOS-XE, NX-OS, and ASA platforms
+
+# ============================================================
+# SYSTEM & HARDWARE
+# ============================================================
+show version
+show inventory
+show inventory raw
+show module
+show environment
+show environment all
+show environment power
+show environment temperature
+show environment fan
+show processes cpu
+show processes cpu history
+show processes memory
+show memory statistics
+show license
+show license usage
+show boot
+show reload
+show clock
+
+# ============================================================
+# INTERFACES - GENERAL
+# ============================================================
+show interfaces
+show interfaces brief
+show interfaces status
+show interfaces description
+show interfaces summary
+show interfaces counters
+show interfaces counters errors
+show interfaces trunk
+show interfaces switchport
+show interfaces transceiver
+show interfaces transceiver detail
+
+# ============================================================
+# SPECIFIC INTERFACE TYPES
+# ============================================================
+show interfaces GigabitEthernet*
+show interfaces TenGigabitEthernet*
+show interfaces Port-channel*
+show interfaces Vlan*
+show interfaces Loopback*
+show interfaces Tunnel*
+
+# ============================================================
+# LAG / PORT-CHANNEL / ETHERCHANNEL
+# ============================================================
+show etherchannel summary
+show etherchannel detail
+show etherchannel port-channel
+show lacp neighbor
+show lacp internal
+show lacp counters
+show pagp neighbor
+
+# ============================================================
+# LAYER 2 - SWITCHING
+# ============================================================
+show vlan
+show vlan brief
+show vlan summary
+show mac address-table
+show mac address-table count
+show mac address-table dynamic
+show mac address-table aging-time
+
+# ============================================================
+# VTP
+# ============================================================
+show vtp status
+show vtp counters
+show vtp password
+
+# ============================================================
+# CDP / LLDP
+# ============================================================
+show cdp neighbors
+show cdp neighbors detail
+show cdp entry *
+show cdp interface
+show lldp neighbors
+show lldp neighbors detail
+show lldp entry *
+
+# ============================================================
+# STP / RSTP / MST
+# ============================================================
+show spanning-tree
+show spanning-tree summary
+show spanning-tree detail
+show spanning-tree root
+show spanning-tree bridge
+show spanning-tree interface
+show spanning-tree blockedports
+show spanning-tree inconsistentports
+show spanning-tree mst
+show spanning-tree mst configuration
+
+# ============================================================
+# ARP / MAC / NEIGHBORS
+# ============================================================
+show arp
+show ip arp
+show ip arp summary
+show ipv6 neighbors
+show adjacency
+
+# ============================================================
+# ROUTING - GENERAL
+# ============================================================
+show ip route
+show ip route summary
+show ip route static
+show ip route connected
+show ip route ospf
+show ip route bgp
+show ip route eigrp
+show ip protocols
+show ip protocols summary
+show ipv6 route
+show ipv6 route summary
+
+# ============================================================
+# ROUTING TABLE (NX-OS)
+# ============================================================
+show routing
+show routing summary
+
+# ============================================================
+# OSPF
+# ============================================================
+show ip ospf
+show ip ospf neighbor
+show ip ospf neighbor detail
+show ip ospf interface
+show ip ospf interface brief
+show ip ospf database
+show ip ospf database summary
+show ip ospf border-routers
+show ip ospf virtual-links
+show ip ospf statistics
+show ipv6 ospf neighbor
+show ipv6 ospf interface
+
+# ============================================================
+# BGP
+# ============================================================
+show ip bgp summary
+show ip bgp
+show ip bgp neighbors
+show ip bgp neighbors advertised-routes
+show ip bgp neighbors received-routes
+show ip bgp community
+show ip bgp regexp
+show bgp all summary
+show bgp ipv4 unicast summary
+show bgp ipv6 unicast summary
+
+# ============================================================
+# EIGRP
+# ============================================================
+show ip eigrp neighbors
+show ip eigrp topology
+show ip eigrp interfaces
+show ip eigrp traffic
+
+# ============================================================
+# IS-IS
+# ============================================================
+show isis neighbors
+show isis database
+show isis interface
+show isis topology
+show isis route
+
+# ============================================================
+# MPLS / LDP
+# ============================================================
+show mpls interfaces
+show mpls ldp neighbor
+show mpls ldp bindings
+show mpls forwarding-table
+show mpls traffic-eng tunnels
+
+# ============================================================
+# BFD
+# ============================================================
+show bfd neighbors
+show bfd neighbors details
+show bfd summary
+
+# ============================================================
+# HSRP / VRRP / GLBP
+# ============================================================
+show standby
+show standby brief
+show standby all
+show vrrp
+show vrrp brief
+show vrrp all
+show glbp
+show glbp brief
+
+# ============================================================
+# MULTICAST
+# ============================================================
+show ip mroute
+show ip mroute summary
+show ip igmp groups
+show ip igmp interface
+show ip pim neighbor
+show ip pim interface
+show ip pim rp mapping
+
+# ============================================================
+# VRF
+# ============================================================
+show vrf
+show vrf detail
+show ip vrf
+show ip vrf interfaces
+
+# ============================================================
+# ACL / FILTERS
+# ============================================================
+show access-lists
+show ip access-lists
+show ipv6 access-lists
+show access-lists summary
+
+# ============================================================
+# QOS
+# ============================================================
+show policy-map
+show policy-map interface
+show class-map
+show qos interface
+show mls qos
+show mls qos interface
+
+# ============================================================
+# SECURITY (ASA)
+# ============================================================
+show nameif
+show firewall
+show conn
+show conn count
+show xlate
+show nat
+show nat detail
+show service-policy
+show threat-detection statistics
+
+# ============================================================
+# VPN / CRYPTO (ASA/IOS)
+# ============================================================
+show crypto isakmp sa
+show crypto isakmp sa detail
+show crypto ipsec sa
+show crypto ipsec sa detail
+show crypto session
+show crypto session detail
+show vpn-sessiondb
+show vpn-sessiondb summary
+
+# ============================================================
+# AAA / AUTHENTICATION
+# ============================================================
+show aaa servers
+show aaa sessions
+show users
+show privilege
+
+# ============================================================
+# NTP / TIME
+# ============================================================
+show ntp associations
+show ntp status
+show clock detail
+
+# ============================================================
+# SNMP
+# ============================================================
+show snmp
+show snmp host
+show snmp community
+show snmp statistics
+
+# ============================================================
+# LOGGING
+# ============================================================
+show logging
+show logging last 100
+show logging history
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+show running-config
+show running-config interface
+show startup-config
+show archive config differences
+
+# ============================================================
+# PLATFORM SPECIFIC - NX-OS
+# ============================================================
+show system resources
+show system uptime
+show vpc
+show vpc brief
+show vpc peer-keepalive
+show vpc consistency-parameters global
+show port-channel summary
+show feature
+show nve peers
+show nve vni
+show fabric forwarding
+
+# ============================================================
+# PLATFORM SPECIFIC - IOS-XE
+# ============================================================
+show platform software status control-processor
+show platform hardware fed active fwd-asic drops
+show sdwan control connections
+show sdwan bfd sessions
+show sdwan omp peers

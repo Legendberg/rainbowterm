@@ -1,0 +1,283 @@
+# Arista EOS Sample Collection Commands
+# Run these commands to gather output for rainbowterm test files
+
+# ============================================================
+# SYSTEM & HARDWARE
+# ============================================================
+show version
+show version detail
+show inventory
+show module
+show environment all
+show environment cooling
+show environment power
+show environment temperature
+show processes top
+show processes top once
+show system memory
+show aaa sessions
+show users
+show boot-config
+show reload cause
+show uptime
+show clock
+
+# ============================================================
+# INTERFACES - GENERAL
+# ============================================================
+show interfaces
+show interfaces status
+show interfaces description
+show interfaces counters
+show interfaces counters errors
+show interfaces counters rates
+show interfaces transceiver
+show interfaces transceiver detail
+show interfaces hardware
+show interfaces phy detail
+
+# ============================================================
+# SPECIFIC INTERFACE TYPES
+# ============================================================
+show interfaces Ethernet*
+show interfaces Port-Channel*
+show interfaces Vlan*
+show interfaces Loopback*
+show interfaces Vxlan1
+show interfaces Management*
+
+# ============================================================
+# LAG / PORT-CHANNEL / MLAG
+# ============================================================
+show port-channel
+show port-channel summary
+show port-channel dense
+show lacp neighbor
+show lacp internal
+show lacp counters
+show mlag
+show mlag detail
+show mlag config-sanity
+show mlag interfaces
+
+# ============================================================
+# LAYER 2 - SWITCHING
+# ============================================================
+show vlan
+show vlan brief
+show vlan summary
+show vlan dynamic
+show mac address-table
+show mac address-table count
+show mac address-table aging-time
+show mac address-table dynamic
+
+# ============================================================
+# LLDP
+# ============================================================
+show lldp neighbors
+show lldp neighbors detail
+show lldp local-info
+show lldp tlv-select
+
+# ============================================================
+# STP / RSTP / MST
+# ============================================================
+show spanning-tree
+show spanning-tree summary
+show spanning-tree detail
+show spanning-tree root
+show spanning-tree bridge
+show spanning-tree blockedports
+show spanning-tree topology status
+show spanning-tree mst
+show spanning-tree mst configuration
+
+# ============================================================
+# ARP / MAC / NEIGHBORS
+# ============================================================
+show arp
+show ip arp
+show ip arp summary
+show ipv6 neighbors
+
+# ============================================================
+# ROUTING - GENERAL
+# ============================================================
+show ip route
+show ip route summary
+show ip route vrf all
+show ip route connected
+show ip route static
+show ip route bgp
+show ip route ospf
+show ipv6 route
+show ipv6 route summary
+show ip protocols
+
+# ============================================================
+# OSPF
+# ============================================================
+show ip ospf
+show ip ospf neighbor
+show ip ospf neighbor detail
+show ip ospf interface
+show ip ospf interface brief
+show ip ospf database
+show ip ospf database summary
+show ip ospf border-routers
+show ip ospf statistics
+show ipv6 ospf neighbor
+show ipv6 ospf interface
+
+# ============================================================
+# BGP
+# ============================================================
+show ip bgp summary
+show ip bgp
+show ip bgp neighbors
+show ip bgp neighbors advertised-routes
+show ip bgp neighbors received-routes
+show ip bgp community
+show bgp summary
+show bgp evpn summary
+show bgp evpn
+show bgp neighbors
+
+# ============================================================
+# IS-IS
+# ============================================================
+show isis neighbors
+show isis interface
+show isis database
+show isis topology
+show isis summary
+
+# ============================================================
+# BFD
+# ============================================================
+show bfd neighbors
+show bfd neighbors detail
+show bfd summary
+
+# ============================================================
+# VRRP
+# ============================================================
+show vrrp
+show vrrp brief
+show vrrp detail
+show vrrp all
+
+# ============================================================
+# MULTICAST
+# ============================================================
+show ip mroute
+show ip mroute summary
+show ip igmp groups
+show ip igmp interface
+show ip igmp snooping
+show ip pim neighbor
+show ip pim interface
+show ip pim rp
+
+# ============================================================
+# VRF
+# ============================================================
+show vrf
+show vrf detail
+show ip route vrf all summary
+
+# ============================================================
+# EVPN / VXLAN
+# ============================================================
+show vxlan vtep
+show vxlan vtep detail
+show vxlan address-table
+show vxlan vni
+show vxlan flood vtep
+show bgp evpn
+show bgp evpn summary
+show bgp evpn route-type mac-ip
+show bgp evpn route-type imet
+
+# ============================================================
+# ACL / FILTERS
+# ============================================================
+show ip access-lists
+show ip access-lists summary
+show ipv6 access-lists
+show mac access-lists
+
+# ============================================================
+# QOS
+# ============================================================
+show policy-map
+show policy-map interface
+show class-map
+show qos interface
+show qos profile
+
+# ============================================================
+# HARDWARE / FORWARDING
+# ============================================================
+show hardware capacity
+show hardware counter
+show hardware tcam profile
+show platform fap
+show platform sand
+
+# ============================================================
+# AAA / AUTHENTICATION
+# ============================================================
+show aaa
+show aaa counters
+show privilege
+show tacacs
+
+# ============================================================
+# NTP / TIME
+# ============================================================
+show ntp associations
+show ntp status
+show clock
+
+# ============================================================
+# SNMP
+# ============================================================
+show snmp
+show snmp host
+show snmp community
+show snmp mib
+
+# ============================================================
+# LOGGING
+# ============================================================
+show logging
+show logging last 100
+show logging system
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+show running-config
+show running-config diffs
+show running-config interfaces
+show startup-config
+show diff running-config startup-config
+
+# ============================================================
+# EXTENSIONS / AGENTS
+# ============================================================
+show extensions
+show agents
+
+# ============================================================
+# CVX / CLOUDVISION
+# ============================================================
+show cvx
+show cvx connections
+
+# ============================================================
+# ZTP / PROVISIONING
+# ============================================================
+show zerotouch

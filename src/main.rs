@@ -23,7 +23,7 @@ struct Cli {
     #[arg(long)]
     no_color: bool,
 
-    /// Configuration file path (default: ~/.rainbowterm.toml)
+    /// Configuration file path (default: platform config dir/rainbowterm/config.toml)
     #[arg(short, long)]
     config: Option<PathBuf>,
 
@@ -160,7 +160,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         anyhow::bail!(
             "No profile specified and no default_profile set in config.\n\
-             Use --profile <name> or set default_profile in ~/.rainbowterm.toml"
+             Use --profile <name> or set default_profile in config.toml"
         );
     };
 

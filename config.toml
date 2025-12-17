@@ -47,6 +47,7 @@ white-soft = "#f8f9f9"
 status-critical = "#ff0000"
 status-error = "#dc143c"
 status-warning = "#ff6600"
+status-caution = "#ffbf00"
 status-ok = "#228b22"
 status-good = "#50c878"
 status-excellent = "#00ff00"
@@ -711,28 +712,29 @@ exclusive = false
 # =============================================================================
 
 # up down = Admin up but link down - THIS IS A PROBLEM (red)
+# Note: Interface names colored by separate speed-based patterns (exclusive = false)
 [[profiles.juniper.patterns]]
 description = "Interface terse: admin UP, link DOWN (problem)"
 regex = '''(?i)^(\S+)\s+(up)\s+(down)\b'''
-color = { "1" = "iface-ge", "2" = "status-good", "3" = "status-critical" }
+color = { "2" = "status-good", "3" = "status-critical" }
 priority = 220
-exclusive = true
+exclusive = false
 
 # down down = Admin down, link down - INTENTIONAL but notable (yellow)
 [[profiles.juniper.patterns]]
 description = "Interface terse: admin DOWN, link DOWN (intentional)"
 regex = '''(?i)^(\S+)\s+(down)\s+(down)\b'''
-color = { "1" = "iface-ge", "2" = "status-warning", "3" = "status-warning" }
+color = { "2" = "status-warning", "3" = "status-warning" }
 priority = 220
-exclusive = true
+exclusive = false
 
 # up up = Both up - HEALTHY (green)
 [[profiles.juniper.patterns]]
 description = "Interface terse: admin UP, link UP (healthy)"
 regex = '''(?i)^(\S+)\s+(up)\s+(up)\b'''
-color = { "1" = "iface-ge", "2" = "status-good", "3" = "status-good" }
+color = { "2" = "status-good", "3" = "status-good" }
 priority = 220
-exclusive = true
+exclusive = false
 
 # Interface patterns by speed
 [[profiles.juniper.patterns]]
@@ -779,7 +781,7 @@ exclusive = true
 
 [[profiles.juniper.patterns]]
 description = "Logical/virtual interfaces"
-regex = '''(?i)\b(?:lo|irb|vlan|pfe|pfh|fxp|me|em|ae|reth|bme|jsrv)(?:-?\d+(?:/\d+)*)(?:\.\d+)?\b'''
+regex = '''(?i)\b(?:lo|irb|vlan|pfe|pfh|fxp|me|em|ae|reth|bme|jsrv)(?:-?\d+(?:/\d+)*)?(?:\.\d+)?\b'''
 color = "purple-bright"
 priority = 100
 exclusive = true
@@ -1135,6 +1137,8 @@ priority = 90
 exclusive = true
 
 # Active/Connect = Peer is trying to connect - WARNING (not up yet)
+# Note: "Active alarms/defects" patterns at priority 155-156 run first and
+# block this from coloring "Active" in those contexts via exclusive matching
 [[profiles.juniper.patterns]]
 description = "BGP Active state (trying to connect)"
 regex = '''\b(Active)\b'''
@@ -1474,9 +1478,55 @@ exclusive = false
 
 [[profiles.juniper.patterns]]
 description = "Storage Capacity - Low (0-50%)"
-regex = '''\s+([0-4][0-9]|50)%\s+'''
+regex = '''\s+([0-9]|[1-4][0-9]|50)%\s+'''
 color = "status-good"
 priority = 96
+exclusive = false
+
+# Memory Usage - Context-aware (Free memory LOW is bad, opposite of storage)
+[[profiles.juniper.patterns]]
+description = "Free memory - Critical (0-5%)"
+regex = '''Free memory.*?(\(\s*[0-5]%\s*\))'''
+color = "status-critical"
+priority = 97
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Free memory - Warning (6-15%)"
+regex = '''Free memory.*?(\(\s*(?:[6-9]|1[0-5])%\s*\))'''
+color = "status-warning"
+priority = 97
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Free memory - Caution (16-25%)"
+regex = '''Free memory.*?(\(\s*(?:1[6-9]|2[0-5])%\s*\))'''
+color = "status-caution"
+priority = 97
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Free memory - Good (26%+)"
+regex = '''Free memory.*?(\(\s*(?:2[6-9]|[3-9][0-9]|100)%\s*\))'''
+color = "status-good"
+priority = 97
+exclusive = true
+
+# Memory type labels (prevent BGP "Active" false positive)
+# "Active memory", "Inactive memory", "Wired memory", etc. should be neutral
+[[profiles.juniper.patterns]]
+description = "Memory type labels (neutral)"
+regex = '''(?:Active|Inactive|Wired|Cache|Buffer|Free)\s+memory'''
+color = "gray-medium"
+priority = 98
+exclusive = true
+
+# Generic parenthesized percentages (neutral/informational)
+[[profiles.juniper.patterns]]
+description = "Percentage in parentheses (informational)"
+regex = '''\(\s*\d{1,3}(?:\.\d+)?%?\s*\)'''
+color = "gray-medium"
+priority = 50
 exclusive = false
 
 # Process States (for show system processes)
@@ -1804,26 +1854,35 @@ color = "green-emerald"
 priority = 85
 exclusive = false
 
+# Active alarms/defects - color entire match to block BGP "Active" pattern
+# Priority 155+ ensures these run first; covers the whole "Active ..." span
 [[profiles.juniper.patterns]]
-description = "No active alarms/defects (good)"
-regex = '''(?:Active alarms|Active defects)\s+:\s+(None)\b'''
+description = "No active alarms (good)"
+regex = '''Active alarms\s+:\s+None\b'''
 color = "status-good"
+priority = 156
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "No active defects (good)"
+regex = '''Active defects\s+:\s+None\b'''
+color = "status-good"
+priority = 156
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "Active alarms (problem exists)"
+regex = '''Active alarms\s+:\s+\w+'''
+color = "status-critical"
 priority = 155
-exclusive = false
+exclusive = true
 
 [[profiles.juniper.patterns]]
-description = "Active alarms keyword"
-regex = '''Active alarms\s+:\s+(\w+)'''
-color = "status-warning"
-priority = 150
-exclusive = false
-
-[[profiles.juniper.patterns]]
-description = "Active defects keyword"
-regex = '''Active defects\s+:\s+(\w+)'''
-color = "status-warning"
-priority = 150
-exclusive = false
+description = "Active defects (problem exists)"
+regex = '''Active defects\s+:\s+\w+'''
+color = "status-critical"
+priority = 155
+exclusive = true
 
 # =============================================================================
 # SEMANTIC ERROR STATES - "Error: None" = healthy
@@ -1862,7 +1921,23 @@ exclusive = false
 description = "Error counter: 0 (healthy)"
 regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(0)\b'''
 color = { "1" = "gray-medium", "2" = "status-good" }
-priority = 175
+priority = 178
+exclusive = false
+
+# Error counter - trillions (13-15 digits): red label + error spectrum
+[[profiles.juniper.patterns]]
+description = "Error counter - trillions (catastrophic)"
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "status-critical", "2" = "err-violet", "3" = "err-magenta", "4" = "err-crimson", "5" = "err-darkred", "6" = "err-red" }
+priority = 177
+exclusive = false
+
+# Error counter - billions (10-12 digits): red label + error spectrum
+[[profiles.juniper.patterns]]
+description = "Error counter - billions (severe)"
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "status-critical", "2" = "err-magenta", "3" = "err-crimson", "4" = "err-darkred", "5" = "err-red" }
+priority = 176
 exclusive = false
 
 # Error counter - millions (7-9 digits): red label + magnitude spectrum

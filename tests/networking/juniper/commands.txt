@@ -1,0 +1,328 @@
+# Juniper Sample Collection Commands
+# Run these commands to gather output for rainbowterm test files
+#
+# OUTPUT STRUCTURE:
+#   sample1.conf, sample2.conf   - All show commands (one file per device)
+#   hierarchical.conf            - show configuration
+#   set.conf                     - show configuration | display set
+#   inheritance.conf             - show configuration | display inheritance
+#   diff.conf                    - show configuration | compare rollback
+#
+# ############################################################################
+# PART 1: SHOW COMMANDS → save to sample1.conf, sample2.conf, etc.
+# ############################################################################
+
+# ============================================================
+# SYSTEM & HARDWARE
+# ============================================================
+show version | no-more
+show system uptime | no-more
+show system alarms | no-more
+show system storage | no-more
+show system memory | no-more
+show system buffers | no-more
+show system processes extensive | no-more
+show system commit | no-more
+show system boot-messages | last 50 | no-more
+show system core-dumps | no-more
+show system users | no-more
+show system connections | no-more
+show system statistics | no-more
+show system software | no-more
+show system license | no-more
+show system snapshot | no-more
+
+# ============================================================
+# CHASSIS
+# ============================================================
+show chassis alarms | no-more
+show chassis hardware | no-more
+show chassis hardware detail | no-more
+show chassis environment | no-more
+show chassis environment pem | no-more
+show chassis fpc | no-more
+show chassis fpc detail | no-more
+show chassis fpc pic-status | no-more
+show chassis routing-engine | no-more
+show chassis firmware | no-more
+show chassis pic fpc-slot 0 pic-slot 0 | no-more
+show virtual-chassis | no-more
+show virtual-chassis status | no-more
+
+# ============================================================
+# INTERFACES - GENERAL
+# ============================================================
+show interfaces terse | no-more
+show interfaces brief | no-more
+show interfaces descriptions | no-more
+show interfaces extensive | no-more
+show interfaces statistics | no-more
+show interfaces queue | no-more
+
+# ============================================================
+# INTERFACES - OPTICS & DIAGNOSTICS
+# ============================================================
+show interfaces diagnostics optics | no-more
+show interfaces media | no-more
+
+# ============================================================
+# LAG / LACP / MC-LAG
+# ============================================================
+show lacp interfaces | no-more
+show lacp statistics interfaces | no-more
+show interfaces ae* | no-more
+show interfaces ae* extensive | no-more
+show multi-chassis | no-more
+show iccp | no-more
+
+# ============================================================
+# LAYER 2 - SWITCHING
+# ============================================================
+show vlans | no-more
+show vlans extensive | no-more
+show ethernet-switching table | no-more
+show ethernet-switching table summary | no-more
+show ethernet-switching interfaces | no-more
+show ethernet-switching storm-control | no-more
+show ethernet-switching mac-learning-log | no-more
+
+# ============================================================
+# LLDP / CDP
+# ============================================================
+show lldp | no-more
+show lldp neighbors | no-more
+show lldp neighbors detail | no-more
+show lldp local-information | no-more
+show lldp statistics | no-more
+
+# ============================================================
+# STP / RSTP / MSTP
+# ============================================================
+show spanning-tree bridge | no-more
+show spanning-tree interface | no-more
+show spanning-tree interface detail | no-more
+show spanning-tree statistics bridge | no-more
+show spanning-tree mstp configuration | no-more
+
+# ============================================================
+# ARP / ND / MAC
+# ============================================================
+show arp no-resolve | no-more
+show arp statistics | no-more
+show ipv6 neighbors | no-more
+
+# ============================================================
+# ROUTING - GENERAL
+# ============================================================
+show route | no-more
+show route summary | no-more
+show route protocol static | no-more
+show route protocol direct | no-more
+show route forwarding-table | no-more
+show route instance | no-more
+show route instance detail | no-more
+
+# ============================================================
+# OSPF
+# ============================================================
+show ospf overview | no-more
+show ospf neighbor | no-more
+show ospf neighbor detail | no-more
+show ospf interface | no-more
+show ospf interface detail | no-more
+show ospf database | no-more
+show ospf database summary | no-more
+show ospf route | no-more
+show ospf statistics | no-more
+
+# ============================================================
+# OSPFv3 (IPv6)
+# ============================================================
+show ospf3 overview | no-more
+show ospf3 neighbor | no-more
+show ospf3 interface | no-more
+show ospf3 database | no-more
+
+# ============================================================
+# BGP
+# ============================================================
+show bgp summary | no-more
+show bgp neighbor | no-more
+show bgp group | no-more
+show route protocol bgp | no-more
+show route advertising-protocol bgp | no-more
+show route receive-protocol bgp | no-more
+
+# ============================================================
+# IS-IS
+# ============================================================
+show isis overview | no-more
+show isis adjacency | no-more
+show isis interface | no-more
+show isis database | no-more
+show isis route | no-more
+show isis statistics | no-more
+
+# ============================================================
+# MPLS / LDP / RSVP
+# ============================================================
+show mpls interface | no-more
+show mpls lsp | no-more
+show mpls lsp extensive | no-more
+show ldp overview | no-more
+show ldp neighbor | no-more
+show ldp interface | no-more
+show ldp session | no-more
+show ldp database | no-more
+show rsvp interface | no-more
+show rsvp neighbor | no-more
+show rsvp session | no-more
+
+# ============================================================
+# BFD
+# ============================================================
+show bfd session | no-more
+show bfd session detail | no-more
+show bfd session summary | no-more
+
+# ============================================================
+# VRRP / VIRTUAL ROUTER
+# ============================================================
+show vrrp | no-more
+show vrrp detail | no-more
+show vrrp summary | no-more
+
+# ============================================================
+# MULTICAST
+# ============================================================
+show igmp interface | no-more
+show igmp group | no-more
+show igmp statistics | no-more
+show pim interfaces | no-more
+show pim neighbors | no-more
+show pim rps | no-more
+show pim statistics | no-more
+show multicast route | no-more
+show multicast rpf | no-more
+
+# ============================================================
+# L2VPN / VPLS / EVPN
+# ============================================================
+show l2circuit connections | no-more
+show vpls connections | no-more
+show evpn database | no-more
+show evpn instance | no-more
+show evpn ip-prefix-database | no-more
+show ethernet-switching vxlan-tunnel-end-point remote | no-more
+show ethernet-switching vxlan-tunnel-end-point source | no-more
+
+# ============================================================
+# QoS / CLASS OF SERVICE
+# ============================================================
+show class-of-service interface | no-more
+show class-of-service interface queue | no-more
+show class-of-service interface classifier | no-more
+show class-of-service interface rewrite | no-more
+
+# ============================================================
+# FIREWALL / FILTERS / POLICERS
+# ============================================================
+show firewall | no-more
+show firewall counter | no-more
+show firewall filter | no-more
+show firewall log | no-more
+show policer | no-more
+
+# ============================================================
+# SECURITY (SRX)
+# ============================================================
+show security zones | no-more
+show security policies | no-more
+show security policies hit-count | no-more
+show security flow session | no-more
+show security flow session summary | no-more
+show security flow statistics | no-more
+show security nat source rule all | no-more
+show security nat destination rule all | no-more
+show security nat source pool all | no-more
+show security nat source summary | no-more
+show security screen statistics zone all | no-more
+show security alarms | no-more
+
+# ============================================================
+# IPSEC / IKE VPN (SRX)
+# ============================================================
+show security ike security-associations | no-more
+show security ike security-associations detail | no-more
+show security ipsec security-associations | no-more
+show security ipsec security-associations detail | no-more
+show security ipsec statistics | no-more
+
+# ============================================================
+# PKI / CERTIFICATES
+# ============================================================
+show security pki ca-certificate | no-more
+show security pki local-certificate | no-more
+
+# ============================================================
+# 802.1X / MAC AUTH / AUTHENTICATION
+# ============================================================
+show dot1x interface | no-more
+show dot1x interface detail | no-more
+show dot1x authentication-bypassed-users | no-more
+show ethernet-switching port-mac-limit | no-more
+show authentication-whitelist | no-more
+
+# ============================================================
+# DHCP
+# ============================================================
+show dhcp relay statistics | no-more
+show dhcp server binding | no-more
+show dhcpv6 relay statistics | no-more
+show dhcp-security binding | no-more
+
+# ============================================================
+# POE (EX Series)
+# ============================================================
+show poe controller | no-more
+show poe interface | no-more
+
+# ============================================================
+# NTP / TIME
+# ============================================================
+show ntp associations | no-more
+show ntp status | no-more
+show system ntp | no-more
+
+# ============================================================
+# SNMP
+# ============================================================
+show snmp statistics | no-more
+show snmp mib walk system | no-more
+
+# ============================================================
+# LOGS
+# ============================================================
+show log messages | last 100 | no-more
+show log messages | match "error|warning|critical" | last 50 | no-more
+show log chassisd | last 50 | no-more
+show log dcd | last 50 | no-more
+show log pfed | last 50 | no-more
+
+# ############################################################################
+# PART 2: CONFIGURATION COMMANDS → save to individual files
+# ############################################################################
+
+# → hierarchical.conf
+show configuration | no-more
+
+# → set.conf
+show configuration | display set | no-more
+
+# → inheritance.conf (shows group sources)
+show configuration | display inheritance | no-more
+
+# → diff.conf (shows +/-/! markers)
+show configuration | compare rollback 1 | no-more
+show configuration | compare rollback 2 | no-more
+show configuration | compare rollback 3 | no-more
