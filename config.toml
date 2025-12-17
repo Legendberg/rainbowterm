@@ -1521,6 +1521,44 @@ color = "gray-medium"
 priority = 98
 exclusive = true
 
+# =============================================================================
+# FALSE POSITIVE BLOCKERS - Prevent BGP/STP patterns from matching wrong context
+# =============================================================================
+
+# "Active Internet connections" - system connections output, not BGP state
+[[profiles.juniper.patterns]]
+description = "Active Internet connections (not BGP)"
+regex = '''(Active) Internet connections'''
+color = "gray-medium"
+priority = 98
+exclusive = true
+
+# "Active key ID" in OSPF auth context - not BGP state
+[[profiles.juniper.patterns]]
+description = "Active key ID (OSPF auth, not BGP)"
+regex = '''(Active) key ID'''
+color = "gray-medium"
+priority = 98
+exclusive = true
+
+# CPU Idle percentage - not BGP Idle state
+# Matches "X.XX% Idle" or "X% Idle" in CPU stats
+[[profiles.juniper.patterns]]
+description = "CPU Idle percentage (not BGP)"
+regex = '''\d+(?:\.\d+)?%\s+(Idle)'''
+color = "gray-medium"
+priority = 98
+exclusive = true
+
+# OSPF SPF delay values - not STP costs
+# SPF delay: 0.200000 sec, SPF holddown: 5 sec, SPF rapid runs: 3
+[[profiles.juniper.patterns]]
+description = "OSPF SPF delay value (not STP cost)"
+regex = '''SPF (?:delay|holddown):\s*(\d+(?:\.\d+)?)'''
+color = "cyan-aqua"
+priority = 98
+exclusive = true
+
 # Generic parenthesized percentages (neutral/informational)
 [[profiles.juniper.patterns]]
 description = "Percentage in parentheses (informational)"
