@@ -104,15 +104,166 @@ Multi-line state machine tracks context across output:
 
 ## 🚀 Installation
 
-### From crates.io (Recommended)
+Choose your platform:
+
+- [macOS / Linux](#macos--linux)
+- [Windows](#windows)
+
+---
+
+### macOS / Linux
+
+**Step 1: Install Rust**
+
+Using rustup (recommended):
 
 ```bash
-# Install from crates.io - creates 'rt' command
-cargo install rainbowterm
-
-# Config automatically created on first run (see Configuration section for paths)
-# No manual setup needed!
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
+
+After installation, restart your terminal or run `source ~/.cargo/env`.
+
+<details>
+<summary>Alternative: Homebrew (macOS) or system package manager (Linux)</summary>
+
+**Homebrew (macOS):**
+
+```bash
+brew install rust
+```
+
+> **Important:** Homebrew doesn't add Cargo to your PATH automatically. Run:
+>
+> ```bash
+> # For zsh (default on macOS)
+> echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+>
+> # For bash
+> echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+> ```
+
+**Linux package managers:**
+
+```bash
+# Debian/Ubuntu
+sudo apt install cargo
+
+# Fedora
+sudo dnf install cargo
+
+# Arch
+sudo pacman -S rust
+```
+
+> **Note:** System packages may be older versions. If you encounter build issues, use rustup instead.
+
+</details>
+
+**Step 2: Install RainbowTerm**
+
+```bash
+cargo install rainbowterm
+```
+
+**Step 3: Verify installation**
+
+```bash
+rt --version
+```
+
+You're done! Config is created automatically on first run.
+
+---
+
+### Windows
+
+Windows requires additional setup for compiling Rust programs and for interactive SSH sessions.
+
+**Step 1: Install Git for Windows**
+
+Required for Git Bash, which supports interactive SSH sessions (PowerShell does not).
+
+```powershell
+winget install Git.Git
+```
+
+Or download from [git-scm.com](https://git-scm.com/download/win).
+
+**Step 2: Install Visual Studio Build Tools**
+
+Required for compiling Rust programs.
+
+1. Download [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. Run the installer and select **"Desktop development with C++"**
+3. Complete the installation
+
+**Step 3: Install Rust**
+
+```powershell
+winget install Rustlang.Rustup
+```
+
+Or download from [rustup.rs](https://rustup.rs/).
+
+**Step 4: Restart your terminal**, then verify Rust is installed:
+
+```powershell
+cargo --version
+```
+
+**Step 5: Install RainbowTerm**
+
+```powershell
+cargo install rainbowterm
+```
+
+**Step 6: Add Cargo to your PATH** (if `rt` command is not found):
+
+```powershell
+# Check if rt is installed
+ls $env:USERPROFILE\.cargo\bin\rt.exe
+
+# Add to PATH permanently
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:USERPROFILE\.cargo\bin", "User")
+```
+
+Restart your terminal after updating the PATH.
+
+**Step 7: Add Git Bash to Windows Terminal**
+
+> **Note:** If you installed Git via the GUI installer (not winget), Git Bash may already appear in Windows Terminal. Skip to step 8 if it's there.
+
+Run these commands in PowerShell to add Git Bash as a profile:
+
+```powershell
+$settingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+$settings = Get-Content $settingsPath | ConvertFrom-Json
+
+$gitBashProfile = @{
+    name = "Git Bash"
+    commandline = "C:\\Program Files\\Git\\bin\\bash.exe"
+    icon = "C:\\Program Files\\Git\\mingw64\\share\\git\\git-for-windows.ico"
+    startingDirectory = "%USERPROFILE%"
+    guid = "{" + [guid]::NewGuid().ToString() + "}"
+}
+
+$settings.profiles.list = @($settings.profiles.list) + $gitBashProfile
+$settings | ConvertTo-Json -Depth 100 | Set-Content $settingsPath
+```
+
+**Step 8: Use Git Bash for interactive SSH**
+
+1. Open Windows Terminal
+2. Click the dropdown (▼) next to the tab and select **Git Bash**
+3. Run: `ssh <remote-host> | rt`
+
+Example:
+
+```bash
+ssh admin@192.168.1.1 | rt
+```
+
+---
 
 ### From Source
 
@@ -128,7 +279,7 @@ cargo install --path .
 ### Requirements
 
 - Rust 1.70+ (for building)
-- macOS, Linux, or WSL2
+- macOS, Linux, WSL2, or Windows (with Git Bash for interactive SSH)
 
 ## 📖 Usage
 
@@ -146,6 +297,14 @@ tail -f /var/log/messages | rt --no-context
 
 # List available profiles
 rt --list-profiles
+```
+
+### Windows Note
+
+For interactive SSH sessions on Windows, use **Git Bash** (see [Windows installation](#windows) above). Non-interactive commands work in PowerShell:
+
+```powershell
+ssh router "show version" | rt
 ```
 
 ### Testing Profiles
