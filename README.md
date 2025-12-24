@@ -223,9 +223,11 @@ Or download from [git-scm.com](https://git-scm.com/download/win).
 
 Required for compiling Rust programs.
 
-1. Download [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-2. Run the installer and select **"Desktop development with C++"**
-3. Complete the installation
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+Or download from [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and select "Desktop development with C++".
 
 **Step 3: Install Rust**
 
