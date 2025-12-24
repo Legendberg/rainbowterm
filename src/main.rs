@@ -1,5 +1,5 @@
-use std::io::{self, Write};
-use std::path::PathBuf;
+use std::io::{self, BufRead, Write};
+use std::path::{Path, PathBuf};
 use regex::Regex;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use clap::{CommandFactory, Parser, Subcommand};
@@ -8,6 +8,7 @@ use clap_complete::{generate, Shell};
 mod config;
 mod context;
 mod matching;
+mod versions;
 #[cfg(feature = "convert")]
 mod convert;
 
@@ -43,9 +44,13 @@ struct Cli {
     #[arg(long)]
     no_context: bool,
 
-    /// Update user config with embedded defaults (overwrites existing config)
+    /// Update user config with embedded defaults (smart merge for custom configs)
     #[arg(long)]
     update_config: bool,
+
+    /// Show config hash and version info
+    #[arg(long)]
+    config_hash: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -111,14 +116,45 @@ fn main() -> anyhow::Result<()> {
     // Embedded default config
     const DEFAULT_CONFIG: &str = include_str!("../config.toml");
 
-    // Handle --update-config: overwrite user config with embedded defaults
-    if cli.update_config {
-        if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent)?;
+    // Verify CURRENT_VERSION matches embedded config (compile-time check for consistency)
+    debug_assert_eq!(
+        versions::parse_config_version(DEFAULT_CONFIG).as_deref(),
+        Some(versions::CURRENT_VERSION),
+        "CURRENT_VERSION in versions.rs doesn't match config.toml header!"
+    );
+
+    // Handle --config-hash: show hash and version info
+    if cli.config_hash {
+        let embedded_version = versions::parse_config_version(DEFAULT_CONFIG)
+            .unwrap_or_else(|| "unknown".to_string());
+        let embedded_hash = versions::hash_config(DEFAULT_CONFIG);
+        println!("Embedded config version: {}", embedded_version);
+        println!("Embedded config hash: {}", embedded_hash);
+
+        if config_path.exists() {
+            let user_config = std::fs::read_to_string(&config_path)?;
+            let user_version = versions::parse_config_version(&user_config)
+                .unwrap_or_else(|| "unknown".to_string());
+            let user_hash = versions::hash_config(&user_config);
+            let user_date = versions::parse_config_date(&user_config)
+                .unwrap_or_else(|| "unknown".to_string());
+            println!("User config version: {} ({})", user_version, user_date);
+            println!("User config hash: {}", user_hash);
+
+            if let Some(stock_ver) = versions::is_stock_config(&user_config) {
+                println!("User config status: stock (unmodified v{})", stock_ver);
+            } else {
+                println!("User config status: modified (custom changes detected)");
+            }
+        } else {
+            println!("User config: not yet created");
         }
-        std::fs::write(&config_path, DEFAULT_CONFIG)?;
-        eprintln!("Updated config at {}", config_path.display());
         return Ok(());
+    }
+
+    // Handle --update-config: smart update with merge support
+    if cli.update_config {
+        return handle_update_config(&config_path, DEFAULT_CONFIG);
     }
 
     // Create default config if it doesn't exist (only for default path)
@@ -128,6 +164,11 @@ fn main() -> anyhow::Result<()> {
         }
         std::fs::write(&config_path, DEFAULT_CONFIG)?;
         eprintln!("Created default config at {}", config_path.display());
+    }
+
+    // Check for stale config and warn (once per version)
+    if config_path.exists() {
+        check_config_version_warning(&config_path, DEFAULT_CONFIG);
     }
 
     // Load config from file or use embedded default
@@ -411,4 +452,410 @@ fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
         chunks.push((text[last_end..].to_string(), String::new()));
     }
     chunks
+}
+
+// =============================================================================
+// CONFIG UPDATE AND VERSION MANAGEMENT
+// =============================================================================
+
+/// Handle --update-config with smart merge support
+fn handle_update_config(config_path: &Path, embedded_config: &str) -> anyhow::Result<()> {
+    let embedded_version = versions::parse_config_version(embedded_config)
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Ensure parent directory exists
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Check if user config exists
+    if !config_path.exists() {
+        std::fs::write(config_path, embedded_config)?;
+        eprintln!("Created config v{} at {}", embedded_version, config_path.display());
+        return Ok(());
+    }
+
+    // Read user's current config
+    let user_config = std::fs::read_to_string(config_path)?;
+    let user_version = versions::parse_config_version(&user_config)
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Check if user config matches a known stock version
+    if let Some(matched_version) = versions::is_stock_config(&user_config) {
+        // User has unmodified stock config
+        if matched_version == embedded_version {
+            eprintln!("Config is already at v{} (no update needed)", embedded_version);
+            return Ok(());
+        }
+
+        // Safe to auto-update (stock -> stock)
+        std::fs::write(config_path, embedded_config)?;
+        eprintln!("Updated config from v{} to v{}", matched_version, embedded_version);
+        clear_version_warning(config_path);
+        return Ok(());
+    }
+
+    // User has modified config - need interactive handling
+    eprintln!("Your config has custom modifications.");
+    eprintln!("  Your version: {}", user_version);
+    eprintln!("  New version:  {}", embedded_version);
+
+    // Create backup
+    let backup_path = config_path.with_extension("toml.user");
+    std::fs::copy(config_path, &backup_path)?;
+    eprintln!("  Backup saved: {}", backup_path.display());
+
+    // Check if we're in interactive mode
+    if !is_terminal() {
+        eprintln!("\nNon-interactive mode: keeping your custom config.");
+        eprintln!("To update, run interactively or manually merge from backup.");
+        return Ok(());
+    }
+
+    // Interactive prompt
+    eprintln!("\nOptions:");
+    eprintln!("  [M]erge   - Keep your custom patterns, add new stock patterns");
+    eprintln!("  [R]eplace - Use new stock config (your backup saved at .toml.user)");
+    eprintln!("  [D]iff    - Show differences between your config and new stock");
+    eprintln!("  [K]eep    - Keep your custom config, cancel update");
+    eprint!("\nChoice [M/R/D/K]: ");
+    io::stderr().flush()?;
+
+    let mut input = String::new();
+    io::stdin().lock().read_line(&mut input)?;
+
+    match input.trim().to_lowercase().as_str() {
+        "m" | "merge" => {
+            let merged = merge_configs(&user_config, embedded_config)?;
+            std::fs::write(config_path, &merged)?;
+            eprintln!("Merged config saved. Your custom patterns preserved, new patterns added.");
+            eprintln!("Review the config to ensure everything looks correct.");
+            clear_version_warning(config_path);
+        }
+        "r" | "replace" => {
+            std::fs::write(config_path, embedded_config)?;
+            eprintln!("Replaced with v{}. Your backup: {}", embedded_version, backup_path.display());
+            clear_version_warning(config_path);
+        }
+        "d" | "diff" => {
+            show_config_diff(&user_config, embedded_config);
+            // Re-prompt after showing diff
+            eprintln!("\nWould you like to [M]erge, [R]eplace, or [K]eep? ");
+            io::stderr().flush()?;
+            input.clear();
+            io::stdin().lock().read_line(&mut input)?;
+            match input.trim().to_lowercase().as_str() {
+                "m" | "merge" => {
+                    let merged = merge_configs(&user_config, embedded_config)?;
+                    std::fs::write(config_path, &merged)?;
+                    eprintln!("Merged config saved.");
+                    clear_version_warning(config_path);
+                }
+                "r" | "replace" => {
+                    std::fs::write(config_path, embedded_config)?;
+                    eprintln!("Replaced with v{}", embedded_version);
+                    clear_version_warning(config_path);
+                }
+                _ => {
+                    eprintln!("Keeping your custom config.");
+                    // Clean up backup since we didn't change anything
+                    std::fs::remove_file(&backup_path).ok();
+                }
+            }
+        }
+        _ => {
+            eprintln!("Keeping your custom config.");
+            // Clean up backup since we didn't change anything
+            std::fs::remove_file(&backup_path).ok();
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if stdin is a terminal (for interactive prompts)
+/// Can be overridden with RAINBOWTERM_FORCE_INTERACTIVE=1 for testing
+fn is_terminal() -> bool {
+    if std::env::var("RAINBOWTERM_FORCE_INTERACTIVE").is_ok() {
+        return true;
+    }
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal()
+}
+
+/// Show diff between user config and stock config
+fn show_config_diff(user_config: &str, stock_config: &str) {
+    use similar::{ChangeTag, TextDiff};
+
+    let diff = TextDiff::from_lines(user_config, stock_config);
+
+    eprintln!("\n--- Your Config (user)");
+    eprintln!("+++ New Stock Config");
+    eprintln!();
+
+    let mut shown_lines = 0;
+    const MAX_DIFF_LINES: usize = 100;
+
+    for change in diff.iter_all_changes() {
+        if change.tag() != ChangeTag::Equal {
+            let sign = match change.tag() {
+                ChangeTag::Delete => "-",
+                ChangeTag::Insert => "+",
+                ChangeTag::Equal => " ",
+            };
+            eprint!("{}{}", sign, change);
+            shown_lines += 1;
+            if shown_lines >= MAX_DIFF_LINES {
+                eprintln!("\n... (diff truncated, {} more lines)", diff.iter_all_changes().count() - shown_lines);
+                break;
+            }
+        }
+    }
+
+    if shown_lines == 0 {
+        eprintln!("(no differences found - configs are identical)");
+    }
+}
+
+/// Merge user config with new stock config using TOML-aware merging
+fn merge_configs(user_config: &str, new_stock: &str) -> anyhow::Result<String> {
+    use toml_edit::DocumentMut;
+
+    let mut user_doc: DocumentMut = user_config.parse()
+        .map_err(|e| anyhow::anyhow!("Failed to parse user config: {}", e))?;
+    let new_doc: DocumentMut = new_stock.parse()
+        .map_err(|e| anyhow::anyhow!("Failed to parse stock config: {}", e))?;
+
+    // Update the version header in the merged result
+    // We'll prepend the new header to the user's config
+    let new_version = versions::parse_config_version(new_stock)
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Merge strategy:
+    // 1. For top-level keys in new_stock that don't exist in user: ADD them
+    // 2. For [profiles.X] in new_stock that don't exist in user: ADD them
+    // 3. For patterns in profiles: merge arrays (add new patterns, keep user's)
+    // 4. Keep user's existing values for keys they've modified
+
+    // Merge top-level tables
+    for (key, new_value) in new_doc.iter() {
+        if !user_doc.contains_key(key) {
+            // New top-level key - add it
+            user_doc[key] = new_value.clone();
+            eprintln!("  + Added new section: [{}]", key);
+        } else if key == "profiles" {
+            // Special handling for profiles - merge nested tables
+            if let (Some(user_profiles), Some(new_profiles)) = (
+                user_doc[key].as_table_mut(),
+                new_value.as_table(),
+            ) {
+                merge_profiles_table(user_profiles, new_profiles);
+            }
+        } else if key == "hostname_prefixes" {
+            // Merge hostname prefixes
+            if let (Some(user_prefixes), Some(new_prefixes)) = (
+                user_doc[key].as_table_mut(),
+                new_value.as_table(),
+            ) {
+                for (prefix_key, prefix_value) in new_prefixes.iter() {
+                    if !user_prefixes.contains_key(prefix_key) {
+                        user_prefixes[prefix_key] = prefix_value.clone();
+                        eprintln!("  + Added hostname prefix: {}", prefix_key);
+                    }
+                }
+            }
+        }
+        // For other existing keys, keep user's value
+    }
+
+    // Update the version comment in the output
+    let mut result = user_doc.to_string();
+
+    // Replace the old version line with new version
+    if let Some(old_version) = versions::parse_config_version(&result) {
+        let old_line = format!("# Config version: {}", old_version);
+        let today = chrono_lite_date();
+        let new_line = format!("# Config version: {} ({})", new_version, today);
+        result = result.replacen(&old_line, &new_line, 1);
+    }
+
+    Ok(result)
+}
+
+/// Merge profiles tables
+fn merge_profiles_table(user_profiles: &mut toml_edit::Table, new_profiles: &toml_edit::Table) {
+    for (profile_name, new_profile) in new_profiles.iter() {
+        if !user_profiles.contains_key(profile_name) {
+            // New profile - add it entirely
+            user_profiles[profile_name] = new_profile.clone();
+            eprintln!("  + Added new profile: [profiles.{}]", profile_name);
+        } else if let (Some(user_profile), Some(new_profile_table)) = (
+            user_profiles[profile_name].as_table_mut(),
+            new_profile.as_table(),
+        ) {
+            // Existing profile - merge patterns array
+            merge_profile_patterns(profile_name, user_profile, new_profile_table);
+        }
+    }
+}
+
+/// Merge patterns within a profile
+fn merge_profile_patterns(
+    profile_name: &str,
+    user_profile: &mut toml_edit::Table,
+    new_profile: &toml_edit::Table,
+) {
+    // Get or create patterns array
+    if let Some(new_patterns) = new_profile.get("patterns").and_then(|p| p.as_array_of_tables()) {
+        if let Some(user_patterns) = user_profile.get_mut("patterns").and_then(|p| p.as_array_of_tables_mut()) {
+            // Collect existing pattern descriptions for dedup
+            let existing_descriptions: std::collections::HashSet<String> = user_patterns
+                .iter()
+                .filter_map(|p| p.get("description").and_then(|d| d.as_str()).map(String::from))
+                .collect();
+
+            // Add new patterns that don't exist
+            let mut added = 0;
+            for new_pattern in new_patterns.iter() {
+                if let Some(desc) = new_pattern.get("description").and_then(|d| d.as_str()) {
+                    if !existing_descriptions.contains(desc) {
+                        user_patterns.push(new_pattern.clone());
+                        added += 1;
+                    }
+                }
+            }
+            if added > 0 {
+                eprintln!("  + Added {} new patterns to [profiles.{}]", added, profile_name);
+            }
+        } else {
+            // User doesn't have patterns array - add the whole thing
+            user_profile["patterns"] = new_profile["patterns"].clone();
+            eprintln!("  + Added patterns array to [profiles.{}]", profile_name);
+        }
+    }
+
+    // Merge contexts similarly
+    if let Some(new_contexts) = new_profile.get("contexts").and_then(|c| c.as_array_of_tables()) {
+        if let Some(user_contexts) = user_profile.get_mut("contexts").and_then(|c| c.as_array_of_tables_mut()) {
+            let existing_names: std::collections::HashSet<String> = user_contexts
+                .iter()
+                .filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect();
+
+            let mut added = 0;
+            for new_context in new_contexts.iter() {
+                if let Some(name) = new_context.get("name").and_then(|n| n.as_str()) {
+                    if !existing_names.contains(name) {
+                        user_contexts.push(new_context.clone());
+                        added += 1;
+                    }
+                }
+            }
+            if added > 0 {
+                eprintln!("  + Added {} new contexts to [profiles.{}]", added, profile_name);
+            }
+        } else if new_profile.contains_key("contexts") {
+            user_profile["contexts"] = new_profile["contexts"].clone();
+            eprintln!("  + Added contexts to [profiles.{}]", profile_name);
+        }
+    }
+}
+
+/// Simple date string without external chrono dependency
+fn chrono_lite_date() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = duration.as_secs();
+    // Approximate: days since epoch
+    let days = secs / 86400;
+    // Calculate year/month/day (simplified, not accounting for leap seconds)
+    let mut year = 1970;
+    let mut remaining_days = days;
+
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if remaining_days < days_in_year {
+            break;
+        }
+        remaining_days -= days_in_year;
+        year += 1;
+    }
+
+    let days_in_months: [u64; 12] = if is_leap_year(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+
+    let mut month = 1;
+    for days_in_month in days_in_months.iter() {
+        if remaining_days < *days_in_month {
+            break;
+        }
+        remaining_days -= days_in_month;
+        month += 1;
+    }
+
+    let day = remaining_days + 1;
+    format!("{:04}-{:02}-{:02}", year, month, day)
+}
+
+fn is_leap_year(year: u64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+/// Check config version and warn if stale (once per version)
+fn check_config_version_warning(config_path: &Path, embedded_config: &str) {
+    let embedded_version = match versions::parse_config_version(embedded_config) {
+        Some(v) => v,
+        None => return,
+    };
+
+    let user_config = match std::fs::read_to_string(config_path) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let user_version = match versions::parse_config_version(&user_config) {
+        Some(v) => v,
+        None => return,
+    };
+
+    // Only warn if user version is older than embedded
+    use std::cmp::Ordering;
+    match versions::compare_versions(&user_version, &embedded_version) {
+        Ordering::Equal | Ordering::Greater => return, // Same or newer, no warning
+        Ordering::Less => {} // Older, continue to warn
+    }
+
+    // Check if we've already warned about this version
+    let warned_path = config_path.with_file_name(".warned_versions");
+    if let Ok(warned) = std::fs::read_to_string(&warned_path) {
+        if warned.lines().any(|line| line == embedded_version) {
+            return; // Already warned
+        }
+    }
+
+    // Show warning
+    eprintln!(
+        "Note: Config is v{}, binary is v{}. Run 'rt --update-config' for new patterns.",
+        user_version, embedded_version
+    );
+
+    // Record that we've warned about this version
+    let mut warned_versions = std::fs::read_to_string(&warned_path).unwrap_or_default();
+    if !warned_versions.is_empty() && !warned_versions.ends_with('\n') {
+        warned_versions.push('\n');
+    }
+    warned_versions.push_str(&embedded_version);
+    warned_versions.push('\n');
+    std::fs::write(&warned_path, warned_versions).ok();
+}
+
+/// Clear version warnings after successful update
+fn clear_version_warning(config_path: &Path) {
+    let warned_path = config_path.with_file_name(".warned_versions");
+    std::fs::remove_file(warned_path).ok();
 }

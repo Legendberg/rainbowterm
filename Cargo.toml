@@ -1,6 +1,6 @@
 [package]
 name = "rainbowterm"
-version = "0.2.13"
+version = "0.2.14"
 edition = "2021"
 authors = ["RainbowTerm Contributors"]
 description = "Context-aware terminal colorizer with magnitude spectrum visualization for network device output"
@@ -20,9 +20,12 @@ clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = { version = "0.9", optional = true }
 toml = "0.9"
+toml_edit = "0.22"
 termcolor = "1.4"
 anyhow = "1.0"
 dirs = "6.0"
+blake3 = "1.5"
+similar = "2.6"
 
 [features]
 default = []
