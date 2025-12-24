@@ -664,13 +664,13 @@ fn merge_configs(user_config: &str, new_stock: &str) -> anyhow::Result<String> {
     // Update the version comment in the output
     let mut result = user_doc.to_string();
 
-    // Replace the old version line with new version
-    if let Some(old_version) = versions::parse_config_version(&result) {
-        let old_line = format!("# Config version: {}", old_version);
-        let today = chrono_lite_date();
-        let new_line = format!("# Config version: {} ({})", new_version, today);
-        result = result.replacen(&old_line, &new_line, 1);
-    }
+    // Replace the old version line with new version (match entire line to avoid accumulating dates)
+    let today = chrono_lite_date();
+    let new_line = format!("# Config version: {} ({})", new_version, today);
+
+    // Use regex to match the entire version line including any existing date(s)
+    let version_line_regex = regex::Regex::new(r"# Config version: [^\n]+").unwrap();
+    result = version_line_regex.replace(&result, new_line.as_str()).to_string();
 
     Ok(result)
 }
