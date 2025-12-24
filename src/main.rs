@@ -512,13 +512,15 @@ fn handle_update_config(config_path: &Path, embedded_config: &str) -> anyhow::Re
         return Ok(());
     }
 
+    // Show diff automatically so user can make informed decision
+    show_config_diff(&user_config, embedded_config);
+
     // Interactive prompt
     eprintln!("\nOptions:");
-    eprintln!("  [M]erge   - Keep your custom patterns, add new stock patterns");
+    eprintln!("  [M]erge   - Keep your custom changes, add new stock patterns");
     eprintln!("  [R]eplace - Use new stock config (your backup saved at .toml.user)");
-    eprintln!("  [D]iff    - Show differences between your config and new stock");
-    eprintln!("  [K]eep    - Keep your custom config, cancel update");
-    eprint!("\nChoice [M/R/D/K]: ");
+    eprintln!("  [K]eep    - Keep your current config, cancel update");
+    eprint!("\nChoice [M/R/K]: ");
     io::stderr().flush()?;
 
     let mut input = String::new();
@@ -526,45 +528,36 @@ fn handle_update_config(config_path: &Path, embedded_config: &str) -> anyhow::Re
 
     match input.trim().to_lowercase().as_str() {
         "m" | "merge" => {
-            let merged = merge_configs(&user_config, embedded_config)?;
-            std::fs::write(config_path, &merged)?;
-            eprintln!("Merged config saved. Your custom patterns preserved, new patterns added.");
-            eprintln!("Review the config to ensure everything looks correct.");
-            clear_version_warning(config_path);
-        }
-        "r" | "replace" => {
-            std::fs::write(config_path, embedded_config)?;
-            eprintln!("Replaced with v{}. Your backup: {}", embedded_version, backup_path.display());
-            clear_version_warning(config_path);
-        }
-        "d" | "diff" => {
-            show_config_diff(&user_config, embedded_config);
-            // Re-prompt after showing diff
-            eprintln!("\nWould you like to [M]erge, [R]eplace, or [K]eep? ");
+            eprint!("Confirm merge? [y/N]: ");
             io::stderr().flush()?;
             input.clear();
             io::stdin().lock().read_line(&mut input)?;
-            match input.trim().to_lowercase().as_str() {
-                "m" | "merge" => {
-                    let merged = merge_configs(&user_config, embedded_config)?;
-                    std::fs::write(config_path, &merged)?;
-                    eprintln!("Merged config saved.");
-                    clear_version_warning(config_path);
-                }
-                "r" | "replace" => {
-                    std::fs::write(config_path, embedded_config)?;
-                    eprintln!("Replaced with v{}", embedded_version);
-                    clear_version_warning(config_path);
-                }
-                _ => {
-                    eprintln!("Keeping your custom config.");
-                    // Clean up backup since we didn't change anything
-                    std::fs::remove_file(&backup_path).ok();
-                }
+            if input.trim().to_lowercase() == "y" {
+                let merged = merge_configs(&user_config, embedded_config)?;
+                std::fs::write(config_path, &merged)?;
+                eprintln!("Merged config saved. Your custom changes preserved, new patterns added.");
+                clear_version_warning(config_path);
+            } else {
+                eprintln!("Cancelled. Keeping your current config.");
+                std::fs::remove_file(&backup_path).ok();
+            }
+        }
+        "r" | "replace" => {
+            eprint!("Confirm replace? This will overwrite your changes. [y/N]: ");
+            io::stderr().flush()?;
+            input.clear();
+            io::stdin().lock().read_line(&mut input)?;
+            if input.trim().to_lowercase() == "y" {
+                std::fs::write(config_path, embedded_config)?;
+                eprintln!("Replaced with v{}. Your backup: {}", embedded_version, backup_path.display());
+                clear_version_warning(config_path);
+            } else {
+                eprintln!("Cancelled. Keeping your current config.");
+                std::fs::remove_file(&backup_path).ok();
             }
         }
         _ => {
-            eprintln!("Keeping your custom config.");
+            eprintln!("Keeping your current config.");
             // Clean up backup since we didn't change anything
             std::fs::remove_file(&backup_path).ok();
         }
