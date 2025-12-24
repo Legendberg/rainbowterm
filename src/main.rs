@@ -48,6 +48,10 @@ struct Cli {
     #[arg(long)]
     update_config: bool,
 
+    /// Force replace config with stock version (use with --update-config)
+    #[arg(long)]
+    force: bool,
+
     /// Show config hash and version info
     #[arg(long)]
     config_hash: bool,
@@ -154,7 +158,7 @@ fn main() -> anyhow::Result<()> {
 
     // Handle --update-config: smart update with merge support
     if cli.update_config {
-        return handle_update_config(&config_path, DEFAULT_CONFIG);
+        return handle_update_config(&config_path, DEFAULT_CONFIG, cli.force);
     }
 
     // Create default config if it doesn't exist (only for default path)
@@ -459,7 +463,7 @@ fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
 // =============================================================================
 
 /// Handle --update-config with smart merge support
-fn handle_update_config(config_path: &Path, embedded_config: &str) -> anyhow::Result<()> {
+fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) -> anyhow::Result<()> {
     let embedded_version = versions::parse_config_version(embedded_config)
         .unwrap_or_else(|| "unknown".to_string());
 
@@ -479,6 +483,16 @@ fn handle_update_config(config_path: &Path, embedded_config: &str) -> anyhow::Re
     let user_config = std::fs::read_to_string(config_path)?;
     let user_version = versions::parse_config_version(&user_config)
         .unwrap_or_else(|| "unknown".to_string());
+
+    // Handle --force: backup and replace without prompting
+    if force {
+        let backup_path = config_path.with_extension("toml.user");
+        std::fs::copy(config_path, &backup_path)?;
+        std::fs::write(config_path, embedded_config)?;
+        eprintln!("Forced update to v{}. Backup saved: {}", embedded_version, backup_path.display());
+        clear_version_warning(config_path);
+        return Ok(());
+    }
 
     // Check if user config matches a known stock version
     if let Some(matched_version) = versions::is_stock_config(&user_config) {
@@ -508,7 +522,7 @@ fn handle_update_config(config_path: &Path, embedded_config: &str) -> anyhow::Re
     // Check if we're in interactive mode
     if !is_terminal() {
         eprintln!("\nNon-interactive mode: keeping your custom config.");
-        eprintln!("To update, run interactively or manually merge from backup.");
+        eprintln!("To update, run interactively or use --force to replace.");
         return Ok(());
     }
 

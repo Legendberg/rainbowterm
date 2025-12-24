@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 /// Current embedded config version (must match config.toml header)
-pub const CURRENT_VERSION: &str = "0.2.16";
+pub const CURRENT_VERSION: &str = "0.2.17";
 
 /// Known stock config hashes (version -> blake3 hash)
 /// These hashes are computed from the full config.toml content including headers.
@@ -21,6 +21,7 @@ pub static KNOWN_HASHES: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     m.insert("0.2.14", "63bd0ba42f2291a905d0ba6b7df910e25263ef59628cc4a45eca5e8cbdaa3ceb");
     m.insert("0.2.15", "a654bca0bcf2f54daeb422abfb1b621426c72e1cb644ec2f374888f0c316a8ce");
     m.insert("0.2.16", "37326cf0d09c93ffe1bd6f02bee7cf56064a25a57b5f9079fc483287aeb77e1d");
+    m.insert("0.2.17", "abf29875ef811b6d24b4fd64eb7634806b45722a7c16b5d689059fded4fa8b10");
     m
 });
 
