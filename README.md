@@ -65,6 +65,20 @@ Errors: 0                        # Green (healthy - no errors!)
 
 **Same number, different meaning, different color** - The philosophy behind context-aware coloring.
 
+### 🔍 Automatic Profile Detection
+
+RainbowTerm automatically detects the correct profile based on:
+- **Banner/MOTD content** (e.g., "Versa FlexVNF", "JUNOS", "Cisco IOS")
+- **CLI prompts** (e.g., `user@hostname>`, `hostname#`)
+- **Interface naming patterns** (e.g., `ge-0/0/0`, `vni-0/2`, `GigabitEthernet0/1`)
+- **Configurable hostname prefixes** (e.g., `jr`, `vr`, `cs`)
+
+No flags needed - just pipe and go:
+```bash
+ssh router | rt          # Auto-detects from banner/prompt
+cat output.txt | rt      # Auto-detects from content
+```
+
 ### 🔧 Network Protocol Support
 
 #### Juniper JunOS
@@ -79,6 +93,22 @@ Errors: 0                        # Green (healthy - no errors!)
 - ✅ Active alarms and defects
 - ✅ Routing table markers (* and >)
 - ✅ Configuration diff output (+/-/!)
+
+#### Versa SD-WAN
+- ✅ Interface types (eth, vni, tvi, ptvi, dtvi)
+- ✅ VRF coloring (Control-VR, LAN-VR, Transport-VR)
+- ✅ WAN link identifiers (WAN1, WAN2, WAN3)
+- ✅ SD-WAN session details (natted, sdwan, offload)
+- ✅ SLA metrics (delay, jitter, loss)
+- ✅ LLDP neighbor information
+- ✅ Operational/configuration mode prompts
+- ✅ Branch/site naming patterns
+
+#### Cisco IOS/IOS-XE/NX-OS
+- ✅ Interface names (GigabitEthernet, TenGigabitEthernet, etc.)
+- ✅ BGP/OSPF states
+- ✅ STP states and roles
+- ✅ VTP/VLAN information
 
 #### Generic Patterns
 - ✅ IPv4 addresses
@@ -286,11 +316,14 @@ cargo install --path .
 ### Basic Usage
 
 ```bash
-# Pipe any command through RainbowTerm
-ssh router "show interfaces" | rt
+# Pipe any command through RainbowTerm (auto-detects profile)
+ssh router | rt
 
-# Use with specific profile
+# Use with specific profile (skip auto-detection)
 cat output.txt | rt --profile juniper
+
+# Disable auto-detection, use default profile from config
+cat output.txt | rt --no-auto-detect
 
 # Disable context awareness
 tail -f /var/log/messages | rt --no-context
@@ -369,8 +402,15 @@ head -3 ~/Library/Application\ Support/rainbowterm/config.toml  # macOS
 ```
 
 ```toml
-# Set default profile
+# Set default profile (used when auto-detection fails)
 default_profile = "juniper"
+
+# Customize hostname prefixes for your organization
+# These help auto-detection identify devices by hostname
+[hostname_prefixes]
+juniper = ["jr", "js", "mx", "ex"]    # Your Juniper naming convention
+versa = ["vr", "sdwan"]               # Your Versa naming convention
+cisco = ["cs", "sw", "rtr", "cat"]    # Your Cisco naming convention
 
 # Add custom colors to palette
 [palette]
@@ -388,7 +428,8 @@ priority = 100
 
 - **base**: Universal patterns (IPs, MACs, dates, status)
 - **juniper**: JunOS-specific patterns (inherits from base)
-- Easily extensible for Cisco, Arista, etc.
+- **versa**: Versa SD-WAN patterns (inherits from base)
+- **cisco**: Cisco IOS/NX-OS patterns (inherits from base)
 
 ## 🎨 Color Schemes
 
@@ -458,6 +499,9 @@ Contributions are welcome! Please feel free to submit issues or pull requests on
 - [x] v0.2.3 improved documentation for both platforms
 - [x] Unit test suite (15 tests for config and matching)
 - [x] Integration test suite (Juniper, Cisco profiles)
+- [x] Versa SD-WAN profile (v0.2.12)
+- [x] Automatic profile detection from content/banners
+- [x] User-configurable hostname prefixes
 - [ ] Complete Arista EOS profile implementation
 - [ ] Shell completions (bash, zsh, fish)
 - [ ] Performance benchmarks
