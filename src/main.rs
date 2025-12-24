@@ -31,6 +31,10 @@ struct Cli {
     #[arg(short, long)]
     profile: Option<String>,
 
+    /// Disable auto-detection of profile from input content
+    #[arg(long)]
+    no_auto_detect: bool,
+
     /// List available profiles and exit
     #[arg(long)]
     list_profiles: bool,
@@ -103,37 +107,13 @@ fn main() -> anyhow::Result<()> {
     // Embedded default config
     const DEFAULT_CONFIG: &str = include_str!("../config.toml");
 
-    // Ensure config is up-to-date with embedded default (only for default path)
-    // If user specified custom config with -c, use that instead
-    if cli.config.is_none() {
+    // Create default config if it doesn't exist (only for default path)
+    if cli.config.is_none() && !config_path.exists() {
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-
-        // Check if config needs updating (doesn't exist or differs from embedded)
-        let needs_update = if config_path.exists() {
-            let existing = std::fs::read_to_string(&config_path).unwrap_or_default();
-            existing != DEFAULT_CONFIG
-        } else {
-            true
-        };
-
-        if needs_update {
-            // Backup existing config if present (user may have customizations)
-            if config_path.exists() {
-                let backup_path = config_path.with_extension("toml.backup");
-                std::fs::copy(&config_path, &backup_path)?;
-                eprintln!(
-                    "Updated config at {} (previous config backed up to {})",
-                    config_path.display(),
-                    backup_path.display()
-                );
-            } else {
-                eprintln!("Created default config at {}", config_path.display());
-            }
-
-            std::fs::write(&config_path, DEFAULT_CONFIG)?;
-        }
+        std::fs::write(&config_path, DEFAULT_CONFIG)?;
+        eprintln!("Created default config at {}", config_path.display());
     }
 
     // Load config from file or use embedded default
@@ -152,27 +132,96 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Get profile name: CLI flag > config default > error
-    let profile_name = if let Some(name) = cli.profile.as_ref() {
-        name
-    } else if let Some(default) = config.default_profile.as_ref() {
-        default
-    } else {
-        anyhow::bail!(
+    // If explicit profile specified, use it directly (no auto-detection)
+    if let Some(profile_name) = cli.profile.as_ref() {
+        let profile = config.get_profile(profile_name).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Profile '{}' not found. Use --list-profiles to see available profiles.",
+                profile_name
+            )
+        })?;
+        eprintln!("Using profile: {}", profile_name);
+        return run_colorizer(&config, &profile, cli.no_color, cli.no_context, None);
+    }
+
+    // Auto-detect profile from input (default behavior)
+    if !cli.no_auto_detect {
+        return run_with_auto_detect(&config, cli.no_color, cli.no_context);
+    }
+
+    // Fallback: use default profile (when --no-auto-detect is set)
+    let default_name = config.default_profile.as_ref().ok_or_else(|| {
+        anyhow::anyhow!(
             "No profile specified and no default_profile set in config.\n\
              Use --profile <name> or set default_profile in config.toml"
-        );
-    };
-
-    let profile = config.get_profile(profile_name).ok_or_else(|| {
-        anyhow::anyhow!(
-            "Profile '{}' not found. Use --list-profiles to see available profiles.",
-            profile_name
         )
     })?;
 
-    // Run the colorizer with the selected profile
-    run_colorizer(&config, &profile, cli.no_color, cli.no_context)
+    let profile = config.get_profile(default_name).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Profile '{}' not found. Use --list-profiles to see available profiles.",
+            default_name
+        )
+    })?;
+
+    eprintln!("Using default profile: {}", default_name);
+    run_colorizer(&config, &profile, cli.no_color, cli.no_context, None)
+}
+
+/// Run with auto-detection: buffer initial input, detect profile, then process
+fn run_with_auto_detect(
+    config: &Config,
+    no_color: bool,
+    no_context: bool,
+) -> anyhow::Result<()> {
+    use io::Read;
+
+    const DETECT_BUFFER_SIZE: usize = 4096; // Buffer size for detection
+    const DETECT_TIMEOUT_MS: u64 = 100; // Wait time to accumulate data
+
+    let stdin = io::stdin();
+    let mut stdin_handle = stdin.lock();
+    let mut buffer = Vec::new();
+
+    // Read initial chunk for detection
+    let mut chunk = vec![0u8; DETECT_BUFFER_SIZE];
+
+    // Give some time for data to arrive (helps with slow SSH connections)
+    std::thread::sleep(std::time::Duration::from_millis(DETECT_TIMEOUT_MS));
+
+    let bytes_read = stdin_handle.read(&mut chunk)?;
+    if bytes_read > 0 {
+        buffer.extend_from_slice(&chunk[..bytes_read]);
+    }
+
+    // Convert buffer to string for detection
+    let initial_text = String::from_utf8_lossy(&buffer);
+
+    // Detect profile from content
+    let detected_profile = config.detect_profile(&initial_text);
+
+    let (_profile_name, profile) = if let Some((name, prof)) = detected_profile {
+        eprintln!("Auto-detected profile: {}", name);
+        (name, prof)
+    } else {
+        // Fall back to default profile
+        let default_name = config.default_profile.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Could not auto-detect profile and no default_profile set in config.\n\
+                 Use --profile <name> to specify explicitly."
+            )
+        })?;
+        let prof = config.get_profile(default_name).ok_or_else(|| {
+            anyhow::anyhow!("Default profile '{}' not found", default_name)
+        })?;
+        eprintln!("Auto-detect: no match, using default profile: {}", default_name);
+        (default_name.clone(), prof)
+    };
+
+    drop(stdin_handle); // Release lock before running colorizer
+
+    // Run colorizer with buffered data
+    run_colorizer(config, &profile, no_color, no_context, Some(buffer))
 }
 
 /// Helper function to process and output a single chunk
@@ -251,6 +300,7 @@ fn run_colorizer(
     profile: &config::Profile,
     no_color: bool,
     no_context: bool,
+    initial_data: Option<Vec<u8>>,
 ) -> anyhow::Result<()> {
     let color_choice = if no_color { ColorChoice::Never } else { ColorChoice::Always };
     let mut stdout = StandardStream::stdout(color_choice);
@@ -259,8 +309,8 @@ fn run_colorizer(
     let compiled_patterns = matching::compile_patterns(profile, config);
     let mut context_engine = setup_context_engine(profile, no_context);
 
-    // Process stdin in chunks
-    process_stdin(&mut stdout, &compiled_patterns, &mut context_engine, config)
+    // Process stdin in chunks (with optional initial data from auto-detect)
+    process_stdin(&mut stdout, &compiled_patterns, &mut context_engine, config, initial_data)
 }
 
 /// Setup context engine if enabled
@@ -283,6 +333,7 @@ fn process_stdin(
     patterns: &[matching::CompiledPattern],
     context_engine: &mut Option<ContextEngine>,
     config: &Config,
+    initial_data: Option<Vec<u8>>,
 ) -> anyhow::Result<()> {
     use io::Read;
 
@@ -293,6 +344,17 @@ fn process_stdin(
     let stdin = io::stdin();
     let mut stdin_handle = stdin.lock();
     let mut buffer = Vec::new();
+
+    // Process initial data if provided (from auto-detect)
+    if let Some(initial) = initial_data {
+        buffer.extend(initial);
+        let text = String::from_utf8_lossy(&buffer);
+        for (data, sep) in split_text_chunks(&text, &split_regex) {
+            process_and_output_chunk(&data, &sep, stdout, patterns, context_engine, config)?;
+        }
+        buffer.clear();
+        io::stdout().flush()?;
+    }
 
     loop {
         let mut chunk = vec![0u8; READ_SIZE];

@@ -43,6 +43,11 @@ pub struct Config {
     #[serde(default)]
     pub palette: HashMap<String, String>,
 
+    /// Hostname prefixes for auto-detection (profile_name -> list of prefixes)
+    /// Example: { "juniper" = ["jr", "js"], "versa" = ["vr"] }
+    #[serde(default)]
+    pub hostname_prefixes: HashMap<String, Vec<String>>,
+
     /// Profile definitions (juniper, cisco, base, etc.)
     #[serde(default)]
     pub profiles: HashMap<String, Profile>,
@@ -313,6 +318,86 @@ impl Config {
             .get(color_ref)
             .cloned()
             .unwrap_or_else(|| color_ref.to_string())
+    }
+
+    /// Auto-detect profile from input content
+    /// Returns the profile name and resolved profile if a match is found
+    pub fn detect_profile(&self, content: &str) -> Option<(String, Profile)> {
+        let mut best_match: Option<(String, Profile, i32)> = None;
+
+        for (profile_name, profile) in &self.profiles {
+            let mut score = 0;
+
+            // Check hostname prefixes first (from [hostname_prefixes] section)
+            if let Some(prefixes) = self.hostname_prefixes.get(profile_name) {
+                if !prefixes.is_empty() {
+                    // Build regex pattern from prefixes: \b(prefix1|prefix2)[a-z0-9\-_]*
+                    let prefix_pattern = format!(
+                        r"(?i)\b({})[a-z0-9\-_]*",
+                        prefixes.iter()
+                            .map(|p| regex::escape(p))
+                            .collect::<Vec<_>>()
+                            .join("|")
+                    );
+                    if let Ok(regex) = regex::Regex::new(&prefix_pattern) {
+                        if regex.is_match(content) {
+                            score += 50; // hostname match
+                        }
+                    }
+                }
+            }
+
+            // Check auto_detect rules from profile
+            for rule in &profile.auto_detect {
+                // Try to compile the pattern
+                let regex = match regex::Regex::new(&rule.pattern) {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
+
+                match rule.r#type.as_str() {
+                    "prompt" => {
+                        // Check for CLI prompt patterns (high confidence)
+                        if regex.is_match(content) {
+                            score += 100;
+                        }
+                    }
+                    "hostname" => {
+                        // Hostname patterns in auto_detect (alternative to [hostname_prefixes])
+                        if regex.is_match(content) {
+                            score += 50;
+                        }
+                    }
+                    "content" => {
+                        // General content matching (lower confidence)
+                        if regex.is_match(content) {
+                            score += 25;
+                        }
+                    }
+                    _ => {
+                        // Unknown type, try general match
+                        if regex.is_match(content) {
+                            score += 10;
+                        }
+                    }
+                }
+            }
+
+            // Update best match if this profile scored higher
+            if score > 0 {
+                if let Some((_, _, best_score)) = &best_match {
+                    if score > *best_score {
+                        if let Some(resolved) = self.get_profile(profile_name) {
+                            best_match = Some((profile_name.clone(), resolved, score));
+                        }
+                    }
+                } else if let Some(resolved) = self.get_profile(profile_name) {
+                    best_match = Some((profile_name.clone(), resolved, score));
+                }
+            }
+        }
+
+        best_match.map(|(name, profile, _)| (name, profile))
     }
 }
 

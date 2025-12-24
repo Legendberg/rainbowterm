@@ -1,9 +1,26 @@
 # RainbowTerm Configuration
 # Context-aware terminal colorizer
-# Config version: 0.2.9 (2025-12-17)
+# Config version: 0.2.12 (2025-12-23)
 
 # Default profile to use when none is specified
 default_profile = "juniper"
+
+# =============================================================================
+# HOSTNAME PREFIXES - Customize for your organization
+# =============================================================================
+# These prefixes are used for auto-detection when piping device output through rt.
+# Add your organization's naming conventions here.
+#
+# Example: If your Juniper devices are named "jnpr-core-01", "jnpr-edge-02", etc.,
+# add "jnpr" to the juniper list.
+#
+# Detection matches: prefix followed by any combination of letters, numbers, hyphens, underscores
+# Example: "jr" matches "jr01", "jr-core-01", "jr_edge_02", etc.
+
+[hostname_prefixes]
+juniper = ["jr", "js"]           # Juniper devices (add your prefixes: "mx", "ex", "qfx", "srx", etc.)
+versa = ["vr"]                   # Versa SD-WAN devices
+cisco = ["cs", "sw", "rtr"]      # Cisco devices (add your prefixes: "cat", "nx", "asr", etc.)
 
 # =============================================================================
 # COLOR PALETTE
@@ -661,14 +678,27 @@ case_insensitive = false
 description = "Juniper JunOS devices (MX, EX, QFX, SRX series)"
 inherits = ["base"]
 
-# Auto-detection patterns (optional, used with --auto-detect)
-[[profiles.juniper.auto_detect]]
-type = "hostname"
-pattern = "^(jr|js)"
-
+# Auto-detection patterns for profile selection
+# Note: Hostname prefixes are configured in [hostname_prefixes] section at top of file
 [[profiles.juniper.auto_detect]]
 type = "prompt"
 pattern = '''\w+@[\w\-]+[>#]'''
+
+[[profiles.juniper.auto_detect]]
+type = "content"
+pattern = '''(?i)\b(xe|ge|et|fe|ae|irb|vlan)-\d+'''
+
+[[profiles.juniper.auto_detect]]
+type = "content"
+pattern = '''(?i)\bJUNOS\b'''
+
+[[profiles.juniper.auto_detect]]
+type = "content"
+pattern = '''(?i)\bJuniper Networks\b'''
+
+[[profiles.juniper.auto_detect]]
+type = "content"
+pattern = '''(?i)\b(EX|MX|QFX|SRX)\d{3,4}\b'''
 
 # =============================================================================
 # CLI PROMPTS - Visual mode indicators
@@ -2293,6 +2323,32 @@ exclusive = false
 description = "Cisco IOS/IOS-XE/NX-OS devices"
 inherits = ["base"]
 
+# Auto-detection patterns
+# Note: Hostname prefixes are configured in [hostname_prefixes] section at top of file
+[[profiles.cisco.auto_detect]]
+type = "prompt"
+pattern = '''(?m)^[A-Za-z][\w\-]+[>#]\s*$'''
+
+[[profiles.cisco.auto_detect]]
+type = "content"
+pattern = '''(?i)\b(GigabitEthernet|TenGigabitEthernet|FastEthernet|Ethernet)\d+(?:/\d+)*\b'''
+
+[[profiles.cisco.auto_detect]]
+type = "content"
+pattern = '''(?i)show (ip )?interface|show running-config|show version'''
+
+[[profiles.cisco.auto_detect]]
+type = "content"
+pattern = '''(?i)\bCisco (IOS|NX-OS|IOS-XE|IOS XE)\b'''
+
+[[profiles.cisco.auto_detect]]
+type = "content"
+pattern = '''(?i)\bCisco Systems\b'''
+
+[[profiles.cisco.auto_detect]]
+type = "content"
+pattern = '''(?i)\b(Catalyst|Nexus|ASR|ISR)\s?\d{3,4}\b'''
+
 # =============================================================================
 # CISCO INTERFACE NAMES
 # =============================================================================
@@ -2455,3 +2511,608 @@ description = "Trunk encapsulation"
 regex = '''\b(dot1q|isl|negotiate)\b'''
 color = "blue-bright"
 priority = 80
+
+# =============================================================================
+# VERSA PROFILE - Versa SD-WAN devices (FlexVNF, Director, Analytics)
+# =============================================================================
+[profiles.versa]
+description = "Versa SD-WAN devices (FlexVNF, VOS)"
+inherits = ["base"]
+
+# Auto-detection patterns for profile selection
+# Note: Hostname prefixes are configured in [hostname_prefixes] section at top of file
+[[profiles.versa.auto_detect]]
+type = "prompt"
+pattern = '''\w+@[\w\-]+-cli>'''
+
+[[profiles.versa.auto_detect]]
+type = "content"
+pattern = '''(?i)\b(vni|tvi|dtvi|ptvi)-?\d+'''
+
+[[profiles.versa.auto_detect]]
+type = "content"
+pattern = '''(?i)\b[\w\-]+-(Control|LAN|Transport)-VR\b'''
+
+[[profiles.versa.auto_detect]]
+type = "content"
+pattern = '''(?i)Versa FlexVNF'''
+
+[[profiles.versa.auto_detect]]
+type = "content"
+pattern = '''(?i)\bVERSA\b'''
+
+# =============================================================================
+# CLI PROMPTS AND OUTPUT MARKERS
+# =============================================================================
+
+# Versa CLI Prompt: admin@hostname-cli>
+[[profiles.versa.patterns]]
+description = "CLI Prompt - Versa operational mode"
+regex = '''(\w+)@([\w\-\.]+)(-cli)(>)'''
+color = { "1" = "white", "2" = "blue-bright", "3" = "cyan-aqua", "4" = "blue-bright" }
+priority = 250
+exclusive = true
+
+# Versa Configuration Mode: admin@hostname-cli(config)%
+[[profiles.versa.patterns]]
+description = "CLI Prompt - Versa configuration mode"
+regex = '''(\w+)@([\w\-]+)(-cli)(\(config\))(%)'''
+color = { "1" = "white", "2" = "red-bright", "3" = "cyan-aqua", "4" = "red-bright", "5" = "red-bright" }
+priority = 251
+exclusive = true
+
+# Versa [edit] context marker (like Juniper)
+[[profiles.versa.patterns]]
+description = "Configuration edit context"
+regex = '''\[edit\]'''
+color = "red-bright"
+priority = 240
+exclusive = false
+
+# Versa configuration mode entry message
+[[profiles.versa.patterns]]
+description = "Entering configuration mode"
+regex = '''(Entering configuration mode) (private|exclusive|shared)'''
+color = { "1" = "cyan-bright", "2" = "red-bright" }
+priority = 180
+exclusive = false
+
+# Versa output status marker: [ok][timestamp]
+[[profiles.versa.patterns]]
+description = "Output status marker - OK"
+regex = '''\[(ok)\]\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]'''
+color = { "1" = "status-good", "2" = "cyan-aqua" }
+priority = 245
+exclusive = false
+
+# Aborted by user
+[[profiles.versa.patterns]]
+description = "Command aborted"
+regex = '''\bAborted:\s*by user\b'''
+color = "status-warning"
+priority = 245
+exclusive = false
+
+# =============================================================================
+# INTERFACE TYPES - Versa-specific naming conventions
+# =============================================================================
+
+# Physical ethernet interfaces: eth-0/0
+[[profiles.versa.patterns]]
+description = "Physical ethernet interface"
+regex = '''\beth-\d+/\d+\b'''
+color = "iface-standard"
+priority = 100
+exclusive = false
+
+# Virtual Network Interfaces: vni-0/X or vni-0/X.Y (with VLAN)
+[[profiles.versa.patterns]]
+description = "Virtual network interface (VNI)"
+regex = '''\bvni-\d+/\d+(?:\.\d+)?\b'''
+color = "iface-standard"
+priority = 100
+exclusive = false
+
+# Tunnel Virtual Interfaces: tvi-0/X or tvi-0/X.Y
+[[profiles.versa.patterns]]
+description = "Tunnel virtual interface (TVI)"
+regex = '''\btvi-\d+/\d+(?:\.\d+)?\b'''
+color = "cyan-aqua"
+priority = 100
+exclusive = false
+
+# Point-to-point Tunnel Virtual Interfaces: ptviNNNN
+[[profiles.versa.patterns]]
+description = "Point-to-point tunnel interface (PTVI)"
+regex = '''\bptvi\d+\b'''
+color = "cyan-aqua"
+priority = 100
+exclusive = false
+
+# Dynamic Tunnel Virtual Interfaces: dtvi-0/NNNN
+[[profiles.versa.patterns]]
+description = "Dynamic tunnel interface (DTVI)"
+regex = '''\bdtvi-\d+/\d+\b'''
+color = "purple-bright"
+priority = 100
+exclusive = false
+
+# Host interface mappings (eth0, eth1, etc.)
+[[profiles.versa.patterns]]
+description = "Host interface mapping"
+regex = '''\b(eth\d+|wwanusb\d+)\b'''
+color = "gray-medium"
+priority = 90
+exclusive = false
+
+# =============================================================================
+# INTERFACE STATUS - Admin/Oper state combinations
+# =============================================================================
+
+# Interface up/up (healthy)
+[[profiles.versa.patterns]]
+description = "Interface state: OPER up, ADMIN up (healthy)"
+regex = '''\b(up)\s+(up)\b'''
+color = { "1" = "status-good", "2" = "status-good" }
+priority = 220
+exclusive = false
+
+# Interface down/up (problem - admin up but oper down)
+[[profiles.versa.patterns]]
+description = "Interface state: OPER down, ADMIN up (problem)"
+regex = '''\b(down)\s+(up)\b'''
+color = { "1" = "status-critical", "2" = "status-good" }
+priority = 220
+exclusive = false
+
+# Interface down/down (intentionally disabled)
+[[profiles.versa.patterns]]
+description = "Interface state: OPER down, ADMIN down (disabled)"
+regex = '''\b(down)\s+(down)\b'''
+color = { "1" = "status-warning", "2" = "status-warning" }
+priority = 220
+exclusive = false
+
+# =============================================================================
+# VRF AND TENANT IDENTIFIERS
+# =============================================================================
+
+# VRF names with common suffixes
+[[profiles.versa.patterns]]
+description = "Control VRF"
+regex = '''\b[\w\-]+-Control-VR\b'''
+color = "purple-bright"
+priority = 95
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "LAN VRF"
+regex = '''\b[\w\-]+-LAN-VR\b'''
+color = "cyan-aqua"
+priority = 95
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Transport VRF (WAN)"
+regex = '''\bWAN\d+-Transport-VR\b'''
+color = "orange-bright"
+priority = 95
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Global VRF"
+regex = '''\bglobal\b'''
+color = "gray-medium"
+priority = 90
+exclusive = false
+
+# Tenant ID - standalone single digits (0-9) in context
+# Removed - requires lookbehind which isn't supported
+
+# =============================================================================
+# SD-WAN SPECIFIC PATTERNS
+# =============================================================================
+
+# WAN Link identifiers
+[[profiles.versa.patterns]]
+description = "WAN link identifier"
+regex = '''\bWAN\d+(?::WAN\d+)?\b'''
+color = "orange-bright"
+priority = 100
+exclusive = false
+
+# SD-WAN Yes/No indicators
+[[profiles.versa.patterns]]
+description = "SD-WAN enabled"
+regex = '''\b(sdwan)\s+(Yes)\b'''
+color = { "1" = "gray-medium", "2" = "status-good" }
+priority = 110
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "SD-WAN disabled"
+regex = '''\b(sdwan)\s+(No)\b'''
+color = { "1" = "gray-medium", "2" = "gray-medium" }
+priority = 110
+exclusive = false
+
+# NAT Yes/No indicators
+[[profiles.versa.patterns]]
+description = "NAT enabled"
+regex = '''\b(natted)\s+(Yes)\b'''
+color = { "1" = "gray-medium", "2" = "status-caution" }
+priority = 110
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "NAT disabled"
+regex = '''\b(natted)\s+(No)\b'''
+color = { "1" = "gray-medium", "2" = "status-good" }
+priority = 110
+exclusive = false
+
+# Session offload status
+[[profiles.versa.patterns]]
+description = "Offload false"
+regex = '''\b(forward-offload|reverse-offload)\s+(false)\b'''
+color = { "1" = "gray-medium", "2" = "gray-medium" }
+priority = 105
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Offload true"
+regex = '''\b(forward-offload|reverse-offload)\s+(true)\b'''
+color = { "1" = "gray-medium", "2" = "status-good" }
+priority = 105
+exclusive = false
+
+# Forwarding class
+[[profiles.versa.patterns]]
+description = "Forwarding class"
+regex = '''\bfc_\w+\b'''
+color = "blue-bright"
+priority = 90
+exclusive = false
+
+# PLP (Packet Loss Priority)
+[[profiles.versa.patterns]]
+description = "PLP low"
+regex = '''\b(forward-plp|reverse-plp)\s+(low)\b'''
+color = { "1" = "gray-medium", "2" = "status-good" }
+priority = 90
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "PLP high"
+regex = '''\b(forward-plp|reverse-plp)\s+(high)\b'''
+color = { "1" = "gray-medium", "2" = "status-warning" }
+priority = 90
+exclusive = false
+
+# =============================================================================
+# SLA METRICS - Delay, Jitter, Loss
+# =============================================================================
+
+# Loss ratio 0.0 (perfect)
+[[profiles.versa.patterns]]
+description = "Loss ratio zero (perfect)"
+regex = '''\b0\.0\b'''
+color = "status-good"
+priority = 85
+exclusive = false
+
+# Loss ratio 100.0 (total loss)
+[[profiles.versa.patterns]]
+description = "Loss ratio 100% (total loss)"
+regex = '''\b100\.0\b'''
+color = "status-critical"
+priority = 86
+exclusive = false
+
+# Loss ratio non-zero (problems) - matches X.X patterns except 0.0 and 100.0
+# These are handled by specific patterns above, so this catches partial loss
+[[profiles.versa.patterns]]
+description = "Loss ratio partial"
+regex = '''\b[1-9]\d?\.\d\b'''
+color = "status-warning"
+priority = 84
+exclusive = false
+
+# =============================================================================
+# LLDP NEIGHBOR INFORMATION
+# =============================================================================
+
+# System name in LLDP
+[[profiles.versa.patterns]]
+description = "LLDP System name"
+regex = '''(?:System name:|Nbr-Id)\s+([\w\-\.]+)'''
+color = { "1" = "blue-bright" }
+priority = 100
+exclusive = false
+
+# LLDP capabilities
+[[profiles.versa.patterns]]
+description = "LLDP capabilities"
+regex = '''\b(BRIDGE|ROUTER|WLAN)\b'''
+color = "cyan-aqua"
+priority = 90
+exclusive = false
+
+# Autoneg status
+[[profiles.versa.patterns]]
+description = "Autoneg enabled"
+regex = '''\b(enabled|supported):\s*(yes)\b'''
+color = { "1" = "gray-medium", "2" = "status-good" }
+priority = 85
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Autoneg disabled"
+regex = '''\b(enabled|supported):\s*(no)\b'''
+color = { "1" = "gray-medium", "2" = "status-warning" }
+priority = 85
+exclusive = false
+
+# Speed capability
+[[profiles.versa.patterns]]
+description = "1000Base-T capability"
+regex = '''\b1000Base-?[A-Z]+\b'''
+color = "iface-standard"
+priority = 85
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Link aggregation status"
+regex = '''\b(Capable|Disabled|Enabled)\b'''
+color = "cyan-aqua"
+priority = 80
+exclusive = false
+
+# =============================================================================
+# ROUTING INFORMATION
+# =============================================================================
+
+# Routing instance header
+[[profiles.versa.patterns]]
+description = "Routing instance name"
+regex = '''Routing instance\s*:\s*([\w\-]+)'''
+color = { "1" = "purple-bright" }
+priority = 100
+exclusive = false
+
+# Known via protocol
+[[profiles.versa.patterns]]
+description = "Route protocol BGP"
+regex = '''Known via '(BGP)''''
+color = { "1" = "status-good" }
+priority = 95
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Route protocol OSPF"
+regex = '''Known via '(OSPF)''''
+color = { "1" = "cyan-aqua" }
+priority = 95
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Route protocol static"
+regex = '''Known via '(static)''''
+color = { "1" = "gray-medium" }
+priority = 95
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Route protocol connected"
+regex = '''Known via '(connected)''''
+color = { "1" = "blue-bright" }
+priority = 95
+exclusive = false
+
+# Admin distance
+[[profiles.versa.patterns]]
+description = "Admin distance"
+regex = '''\badmin distance (\d+)'''
+color = { "1" = "orange-coral" }
+priority = 90
+exclusive = false
+
+# Active route indicator
+[[profiles.versa.patterns]]
+description = "Active route indicator"
+regex = '''\[\+\]'''
+color = "status-good"
+priority = 100
+exclusive = false
+
+# Indirect next-hop with branch name
+[[profiles.versa.patterns]]
+description = "Indirect next-hop via branch"
+regex = '''via Indirect\(([\w\-]+)\)'''
+color = { "1" = "blue-bright" }
+priority = 95
+exclusive = false
+
+# =============================================================================
+# UPTIME AND TIME DURATIONS
+# =============================================================================
+
+# Versa uptime format: NNwNNdNNh (weeks, days, hours)
+[[profiles.versa.patterns]]
+description = "Uptime - weeks"
+regex = '''\b(\d+)w(\d+)d(\d+)h'''
+color = { "1" = "uptime-weeks", "2" = "uptime-days", "3" = "uptime-hours" }
+priority = 88
+exclusive = false
+
+# Last change time format
+[[profiles.versa.patterns]]
+description = "Last change with minutes/seconds"
+regex = '''\b(\d+)w(\d+)d(\d+)h(\d+)m(\d+)s\b'''
+color = { "1" = "uptime-weeks", "2" = "uptime-days", "3" = "uptime-hours", "4" = "uptime-minutes", "5" = "uptime-seconds" }
+priority = 89
+exclusive = false
+
+# Session age/idle format: HH:MM:SS
+[[profiles.versa.patterns]]
+description = "Session age/idle time"
+regex = '''(?:session-age|idle-for|idle-timeout)\s+(\d+(?::\d+:\d+)?)'''
+color = { "1" = "cyan-aqua" }
+priority = 85
+exclusive = false
+
+# =============================================================================
+# TRAFFIC STATISTICS - Magnitude Spectrum
+# =============================================================================
+
+# Packets per second (PPS) - removed due to lookahead requirement
+# PPS values will be colored by the general magnitude patterns
+
+# Bytes - use magnitude spectrum
+# Trillions (12+ digits)
+[[profiles.versa.patterns]]
+description = "Bytes - trillions"
+regex = '''\b(\d{1,3})(,?\d{3})(,?\d{3})(,?\d{3})(,?\d{3})\b'''
+color = { "1" = "mag-orange", "2" = "mag-yellow", "3" = "mag-green", "4" = "mag-blue", "5" = "mag-purple" }
+priority = 75
+exclusive = false
+
+# Billions (10-12 digits)
+[[profiles.versa.patterns]]
+description = "Bytes - billions"
+regex = '''\b(\d{1,3})(,?\d{3})(,?\d{3})(,?\d{3})\b'''
+color = { "1" = "mag-yellow", "2" = "mag-green", "3" = "mag-blue", "4" = "mag-purple" }
+priority = 74
+exclusive = false
+
+# Millions (7-9 digits)
+[[profiles.versa.patterns]]
+description = "Bytes - millions"
+regex = '''\b(\d{1,3})(,?\d{3})(,?\d{3})\b'''
+color = { "1" = "mag-green", "2" = "mag-blue", "3" = "mag-purple" }
+priority = 73
+exclusive = false
+
+# Thousands (4-6 digits)
+[[profiles.versa.patterns]]
+description = "Bytes - thousands"
+regex = '''\b(\d{1,3})(,?\d{3})\b'''
+color = { "1" = "mag-blue", "2" = "mag-purple" }
+priority = 72
+exclusive = false
+
+# =============================================================================
+# ERROR COUNTERS - Error Spectrum (warm colors)
+# =============================================================================
+
+# Zero errors (healthy - green)
+[[profiles.versa.patterns]]
+description = "Zero errors"
+regex = '''(?:ERRORS\s+)(\b0\b)'''
+color = { "1" = "status-good" }
+priority = 80
+exclusive = false
+
+# =============================================================================
+# BRANCH/SITE NAMES
+# =============================================================================
+
+# Versa branch naming: vrNNNN-NN
+[[profiles.versa.patterns]]
+description = "Versa branch/site name"
+regex = '''\bvr\d{3,4}(?:sdwan)?-\d{2}\b'''
+color = "blue-bright"
+priority = 95
+exclusive = false
+
+# =============================================================================
+# POLICY AND RULE NAMES
+# =============================================================================
+
+# Access policy names
+[[profiles.versa.patterns]]
+description = "Access policy name"
+regex = '''access-policy\s+([\w\-_]+)'''
+color = { "1" = "purple-bright" }
+priority = 90
+exclusive = false
+
+# SD-WAN rule names
+[[profiles.versa.patterns]]
+description = "SD-WAN rule name"
+regex = '''(?:sdwan-rule-name|steering_rule)\s+([\w\-_]+)'''
+color = { "1" = "cyan-aqua" }
+priority = 90
+exclusive = false
+
+# QoS policy
+[[profiles.versa.patterns]]
+description = "QoS policy rule"
+regex = '''app-qos-policy-rule\s+"([^"]+)"'''
+color = { "1" = "orange-coral" }
+priority = 90
+exclusive = false
+
+# =============================================================================
+# APPLICATION IDENTIFICATION
+# =============================================================================
+
+# Versa application with (predef) marker
+[[profiles.versa.patterns]]
+description = "Predefined application"
+regex = '''([\w\-_]+)/\(predef\)'''
+color = { "1" = "cyan-aqua" }
+priority = 85
+exclusive = false
+
+# =============================================================================
+# VLAN INFORMATION
+# =============================================================================
+
+# IEEE802.1 VLAN references
+[[profiles.versa.patterns]]
+description = "VLAN ID reference"
+regex = '''(?:VLAN|vlan)[- ]?(\d+)'''
+color = { "1" = "blue-bright" }
+priority = 80
+exclusive = false
+
+# Port VLAN ID
+[[profiles.versa.patterns]]
+description = "Port VLAN ID"
+regex = '''Port VLAN ID:\s*(\d+)'''
+color = { "1" = "blue-bright" }
+priority = 85
+exclusive = false
+
+# =============================================================================
+# GENERIC YES/NO AND TRUE/FALSE
+# =============================================================================
+
+[[profiles.versa.patterns]]
+description = "Generic Yes"
+regex = '''\bYes\b'''
+color = "status-good"
+priority = 50
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Generic No"
+regex = '''\bNo\b'''
+color = "gray-medium"
+priority = 50
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Generic true"
+regex = '''\btrue\b'''
+color = "status-good"
+priority = 50
+exclusive = false
+
+[[profiles.versa.patterns]]
+description = "Generic false"
+regex = '''\bfalse\b'''
+color = "gray-medium"
+priority = 50
+exclusive = false
