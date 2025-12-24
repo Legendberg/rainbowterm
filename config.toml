@@ -2962,6 +2962,28 @@ priority = 85
 exclusive = false
 
 # =============================================================================
+# DATE EXCLUSIONS - Prevent dates from being colored as numbers
+# =============================================================================
+
+# Release date in YYYYMMDD format (Versa FlexVNF output)
+# Format: "Release date:    20250627"
+[[profiles.versa.patterns]]
+description = "Release date (YYYYMMDD format - not a number)"
+regex = '''(Release date):\s+(\d{8})\b'''
+color = { "1" = "gray-medium", "2" = "cyan-aqua" }
+priority = 160
+exclusive = true
+
+# Release version line (Versa FlexVNF)
+# Format: "Release     :    22.1.4 (GA)"
+[[profiles.versa.patterns]]
+description = "Release version"
+regex = '''(Release)\s+:\s+([\d\.]+)\s*(\(GA\))?'''
+color = { "1" = "gray-medium", "2" = "cyan-bright", "3" = "status-good" }
+priority = 160
+exclusive = true
+
+# =============================================================================
 # TRAFFIC STATISTICS - Magnitude Spectrum
 # =============================================================================
 

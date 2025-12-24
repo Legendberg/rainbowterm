@@ -43,6 +43,10 @@ struct Cli {
     #[arg(long)]
     no_context: bool,
 
+    /// Update user config with embedded defaults (overwrites existing config)
+    #[arg(long)]
+    update_config: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -106,6 +110,16 @@ fn main() -> anyhow::Result<()> {
 
     // Embedded default config
     const DEFAULT_CONFIG: &str = include_str!("../config.toml");
+
+    // Handle --update-config: overwrite user config with embedded defaults
+    if cli.update_config {
+        if let Some(parent) = config_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&config_path, DEFAULT_CONFIG)?;
+        eprintln!("Updated config at {}", config_path.display());
+        return Ok(());
+    }
 
     // Create default config if it doesn't exist (only for default path)
     if cli.config.is_none() && !config_path.exists() {
