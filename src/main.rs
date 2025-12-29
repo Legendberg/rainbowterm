@@ -67,6 +67,10 @@ enum Commands {
         /// Shell to generate completions for
         #[arg(value_enum)]
         shell: Shell,
+
+        /// Install completions to standard location (default: print to stdout)
+        #[arg(long)]
+        install: bool,
     },
 
     /// Setup shell integration for automatic SSH colorization
@@ -107,10 +111,8 @@ fn run() -> anyhow::Result<()> {
     // Handle subcommands first
     if let Some(cmd) = &cli.subcommand {
         match cmd {
-            Commands::Completions { shell } => {
-                let mut cmd = Cli::command();
-                generate(*shell, &mut cmd, "rt", &mut io::stdout());
-                return Ok(());
+            Commands::Completions { shell, install } => {
+                return handle_completions(*shell, *install);
             }
             Commands::Init { install } => {
                 return handle_init(*install);
@@ -485,6 +487,99 @@ fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
         chunks.push((text[last_end..].to_string(), String::new()));
     }
     chunks
+}
+
+// =============================================================================
+// SHELL COMPLETIONS (rt completions)
+// =============================================================================
+
+/// Handle `rt completions` command - generate or install shell completions
+fn handle_completions(shell: Shell, install: bool) -> anyhow::Result<()> {
+    if !install {
+        // Just print to stdout
+        let mut cmd = Cli::command();
+        generate(shell, &mut cmd, "rt", &mut io::stdout());
+        return Ok(());
+    }
+
+    // Get install path for this shell
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+
+    let (install_path, setup_instructions) = match shell {
+        Shell::Bash => {
+            // Standard bash-completion location
+            let path = home.join(".local/share/bash-completion/completions/rt");
+            let instructions = "Completions will be loaded automatically on new shells.\n\
+                               If not working, ensure bash-completion is installed.";
+            (path, instructions)
+        }
+        Shell::Zsh => {
+            // ~/.zfunc is a common convention, but user needs to add to fpath
+            let path = home.join(".zfunc/_rt");
+            let instructions = "Add to your ~/.zshrc (if not already present):\n\
+                               \n  fpath+=~/.zfunc\n  autoload -Uz compinit && compinit\n";
+            (path, instructions)
+        }
+        Shell::Fish => {
+            // Fish auto-loads from this directory
+            let path = home.join(".config/fish/completions/rt.fish");
+            let instructions = "Completions will be loaded automatically on new shells.";
+            (path, instructions)
+        }
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Auto-install not supported for {:?}. Use 'rt completions {:?}' to print to stdout.",
+                shell, shell
+            ));
+        }
+    };
+
+    // Check if already exists
+    if install_path.exists() {
+        eprintln!("Completions already exist at {}", install_path.display());
+        eprintln!("To reinstall, delete the file first and run again.");
+        return Ok(());
+    }
+
+    // Show what we'll do
+    eprintln!("Shell Completions Setup");
+    eprintln!("=======================");
+    eprintln!("  Shell: {:?}", shell);
+    eprintln!("  Path:  {}", install_path.display());
+    eprintln!("\n{}", setup_instructions);
+
+    // Interactive confirmation
+    if !is_terminal() {
+        eprintln!("\nNon-interactive mode. Run interactively or redirect output:");
+        eprintln!("  rt completions {:?} > {}", shell, install_path.display());
+        return Ok(());
+    }
+
+    eprint!("\nInstall completions? [y/N]: ");
+    io::stderr().flush()?;
+
+    let mut input = String::new();
+    io::stdin().lock().read_line(&mut input)?;
+
+    if input.trim().to_lowercase() != "y" {
+        eprintln!("Cancelled.");
+        return Ok(());
+    }
+
+    // Create parent directory if needed
+    if let Some(parent) = install_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Generate completions to file
+    let mut file = std::fs::File::create(&install_path)?;
+    let mut cmd = Cli::command();
+    generate(shell, &mut cmd, "rt", &mut file);
+
+    eprintln!("\nInstalled successfully!");
+    eprintln!("Restart your shell or source the completions to activate.");
+
+    Ok(())
 }
 
 // =============================================================================
