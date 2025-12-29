@@ -509,8 +509,15 @@ fn handle_completions(shell: Shell, install: bool) -> anyhow::Result<()> {
         Shell::Bash => {
             // Standard bash-completion location
             let path = home.join(".local/share/bash-completion/completions/rt");
-            let instructions = "Completions will be loaded automatically on new shells.\n\
-                               If not working, ensure bash-completion is installed.";
+            let instructions = if cfg!(windows) || std::env::var("MSYSTEM").is_ok() {
+                // GitBash on Windows doesn't auto-load completions
+                "GitBash detected. After install, add to ~/.bashrc:\n\
+                 \n  source ~/.local/share/bash-completion/completions/rt\n\n\
+                 (Create ~/.bashrc first if it doesn't exist: touch ~/.bashrc)"
+            } else {
+                "Completions will be loaded automatically on new shells.\n\
+                 If not working, ensure bash-completion is installed."
+            };
             (path, instructions)
         }
         Shell::Zsh => {
