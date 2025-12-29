@@ -69,6 +69,13 @@ enum Commands {
         shell: Shell,
     },
 
+    /// Setup shell integration for automatic SSH colorization
+    Init {
+        /// Actually install the shell function (default: just show what would be added)
+        #[arg(long)]
+        install: bool,
+    },
+
     /// Convert ChromaTerm YAML to RainbowTerm TOML (DEPRECATED - requires 'convert' feature)
     #[cfg(feature = "convert")]
     Convert {
@@ -104,6 +111,9 @@ fn run() -> anyhow::Result<()> {
                 let mut cmd = Cli::command();
                 generate(*shell, &mut cmd, "rt", &mut io::stdout());
                 return Ok(());
+            }
+            Commands::Init { install } => {
+                return handle_init(*install);
             }
             #[cfg(feature = "convert")]
             Commands::Convert { input, output } => {
@@ -181,6 +191,7 @@ fn run() -> anyhow::Result<()> {
         }
         std::fs::write(&config_path, DEFAULT_CONFIG)?;
         eprintln!("Created default config at {}", config_path.display());
+        eprintln!("\nTip: Run 'rt init' to setup automatic SSH colorization.");
     }
 
     // Check for stale config and warn (once per version)
@@ -469,6 +480,149 @@ fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
         chunks.push((text[last_end..].to_string(), String::new()));
     }
     chunks
+}
+
+// =============================================================================
+// SHELL INTEGRATION (rt init)
+// =============================================================================
+
+/// Handle `rt init` command - setup shell integration for automatic SSH colorization
+fn handle_init(install: bool) -> anyhow::Result<()> {
+    // Detect shell from $SHELL environment variable
+    let shell_path = std::env::var("SHELL").unwrap_or_default();
+    let shell_name = Path::new(&shell_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown");
+
+    // Determine rc file path
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+    let rc_file = match shell_name {
+        "zsh" => home.join(".zshrc"),
+        "bash" => {
+            // Prefer .bashrc, fall back to .bash_profile on macOS
+            let bashrc = home.join(".bashrc");
+            let bash_profile = home.join(".bash_profile");
+            if bashrc.exists() {
+                bashrc
+            } else if bash_profile.exists() {
+                bash_profile
+            } else {
+                bashrc // Default to .bashrc
+            }
+        }
+        _ => {
+            eprintln!("Unsupported shell: {}", shell_name);
+            eprintln!("Supported shells: zsh, bash");
+            eprintln!("\nManual setup: Add this to your shell's rc file:");
+            eprintln!("  ssh() {{ /usr/bin/ssh \"$@\" | rt; }}");
+            return Ok(());
+        }
+    };
+
+    // Find ssh binary path
+    let ssh_path = find_ssh_path();
+
+    // Build the shell function
+    let shell_function = format!(
+        r#"
+# RainbowTerm: Automatic SSH colorization
+ssh() {{ {} "$@" | rt; }}"#,
+        ssh_path
+    );
+
+    // Check if already installed
+    let rc_content = std::fs::read_to_string(&rc_file).unwrap_or_default();
+    let already_installed = rc_content.contains("| rt;")
+        || rc_content.contains("|rt;")
+        || rc_content.contains("| rt }");
+
+    if already_installed {
+        eprintln!("Shell integration already detected in {}", rc_file.display());
+        eprintln!("\nIf you want to reinstall, remove the existing ssh() function first.");
+        return Ok(());
+    }
+
+    // Show what we found and what we'll do
+    eprintln!("Shell Integration Setup");
+    eprintln!("=======================");
+    eprintln!("  Shell:    {} ({})", shell_name, shell_path);
+    eprintln!("  RC file:  {}", rc_file.display());
+    eprintln!("  SSH path: {}", ssh_path);
+    eprintln!("\nThis will add the following to {}:", rc_file.display());
+    eprintln!("{}", shell_function);
+
+    if !install {
+        eprintln!("\nTo install, run:");
+        eprintln!("  rt init --install");
+        eprintln!("\nOr manually add the function above to your shell config.");
+        return Ok(());
+    }
+
+    // Interactive confirmation
+    if !is_terminal() {
+        eprintln!("\nNon-interactive mode. Run interactively or add manually.");
+        return Ok(());
+    }
+
+    eprint!("\nInstall to {}? [y/N]: ", rc_file.display());
+    io::stderr().flush()?;
+
+    let mut input = String::new();
+    io::stdin().lock().read_line(&mut input)?;
+
+    if input.trim().to_lowercase() != "y" {
+        eprintln!("Cancelled.");
+        return Ok(());
+    }
+
+    // Append to rc file
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&rc_file)?;
+
+    writeln!(file, "{}", shell_function)?;
+
+    eprintln!("\nInstalled successfully!");
+    eprintln!("\nTo activate, either:");
+    eprintln!("  1. Restart your terminal, or");
+    eprintln!("  2. Run: source {}", rc_file.display());
+    eprintln!("\nThen just type 'ssh <host>' - colorization is automatic!");
+
+    Ok(())
+}
+
+/// Find the ssh binary path, avoiding any shell function
+fn find_ssh_path() -> String {
+    // Try common locations in order of preference
+    let candidates = [
+        "/usr/bin/ssh",
+        "/usr/local/bin/ssh",
+        "/opt/homebrew/bin/ssh",
+        "/bin/ssh",
+    ];
+
+    for candidate in candidates {
+        if Path::new(candidate).exists() {
+            return candidate.to_string();
+        }
+    }
+
+    // Fall back to which command
+    if let Ok(output) = std::process::Command::new("which").arg("ssh").output() {
+        if output.status.success() {
+            if let Ok(path) = String::from_utf8(output.stdout) {
+                let path = path.trim();
+                if !path.is_empty() {
+                    return path.to_string();
+                }
+            }
+        }
+    }
+
+    // Ultimate fallback
+    "/usr/bin/ssh".to_string()
 }
 
 // =============================================================================
