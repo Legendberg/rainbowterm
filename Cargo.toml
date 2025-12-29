@@ -35,6 +35,13 @@ convert = ["serde_yaml"]  # DEPRECATED: ChromaTerm YAML conversion (uses unmaint
 name = "rt"
 path = "src/main.rs"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "colorize"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1
