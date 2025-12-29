@@ -315,6 +315,20 @@ cargo install --path .
 
 ## 📖 Usage
 
+### Shell Integration (Recommended)
+
+Setup automatic SSH colorization - no `| rt` needed:
+
+```bash
+rt init            # Preview what will be installed
+rt init --install  # Install to your shell config
+```
+
+This adds a shell function that automatically pipes SSH through RainbowTerm:
+```bash
+ssh router         # Automatically colorized!
+```
+
 ### Basic Usage
 
 ```bash
@@ -504,8 +518,9 @@ Contributions are welcome! Please feel free to submit issues or pull requests on
 - [x] Versa SD-WAN profile (v0.2.12)
 - [x] Automatic profile detection from content/banners
 - [x] User-configurable hostname prefixes
+- [x] Shell integration (`rt init`) for automatic SSH colorization
+- [x] Shell completions (`rt completions <shell>`)
 - [ ] Complete Arista EOS profile implementation
-- [ ] Shell completions (bash, zsh, fish)
 - [ ] Performance benchmarks
 - [ ] Additional vendor profiles (Palo Alto, F5, etc.)
 - [ ] PTY wrap mode for serial console access (see [Future Development](#-future-development))

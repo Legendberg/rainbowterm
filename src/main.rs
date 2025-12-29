@@ -185,13 +185,18 @@ fn run() -> anyhow::Result<()> {
     }
 
     // Create default config if it doesn't exist (only for default path)
-    if cli.config.is_none() && !config_path.exists() {
+    let first_run = cli.config.is_none() && !config_path.exists();
+    if first_run {
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(&config_path, DEFAULT_CONFIG)?;
         eprintln!("Created default config at {}", config_path.display());
-        eprintln!("\nTip: Run 'rt init' to setup automatic SSH colorization.");
+    }
+
+    // Check for shell integration (once per install, on first run)
+    if first_run {
+        check_shell_integration_hint(&config_path);
     }
 
     // Check for stale config and warn (once per version)
@@ -623,6 +628,50 @@ fn find_ssh_path() -> String {
 
     // Ultimate fallback
     "/usr/bin/ssh".to_string()
+}
+
+/// Check if shell integration is installed, show hint if not (once per install)
+fn check_shell_integration_hint(config_path: &Path) {
+    // Get rc file path
+    let shell_path = std::env::var("SHELL").unwrap_or_default();
+    let shell_name = Path::new(&shell_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown");
+
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return,
+    };
+
+    let rc_file = match shell_name {
+        "zsh" => home.join(".zshrc"),
+        "bash" => {
+            let bashrc = home.join(".bashrc");
+            let bash_profile = home.join(".bash_profile");
+            if bashrc.exists() { bashrc } else { bash_profile }
+        }
+        _ => return, // Unsupported shell, skip hint
+    };
+
+    // Check if already installed
+    let rc_content = std::fs::read_to_string(&rc_file).unwrap_or_default();
+    if rc_content.contains("| rt;") || rc_content.contains("|rt;") || rc_content.contains("| rt }") {
+        return; // Already installed
+    }
+
+    // Check if we've already shown this hint
+    let hint_shown_path = config_path.with_file_name(".init_hint_shown");
+    if hint_shown_path.exists() {
+        return;
+    }
+
+    // Show hint
+    eprintln!("\nTip: Run 'rt init' to setup automatic SSH colorization.");
+    eprintln!("     Then just type 'ssh <host>' - no '| rt' needed!");
+
+    // Mark hint as shown
+    std::fs::write(&hint_shown_path, "1").ok();
 }
 
 // =============================================================================
