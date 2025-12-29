@@ -508,6 +508,48 @@ Contributions are welcome! Please feel free to submit issues or pull requests on
 - [ ] Shell completions (bash, zsh, fish)
 - [ ] Performance benchmarks
 - [ ] Additional vendor profiles (Palo Alto, F5, etc.)
+- [ ] PTY wrap mode for serial console access (see [Future Development](#-future-development))
+
+## 🔮 Future Development
+
+### PTY Wrap Mode (Paused)
+
+A PTY (pseudo-terminal) wrap mode was prototyped to support serial console access (e.g., `rt screen /dev/ttyUSB0`). This would allow colorizing output from direct console connections where pipe mode isn't possible.
+
+**Why it was paused:**
+
+The implementation revealed fundamental limitations with the PTY approach for serial/console access:
+
+1. **Inconsistent colorization** - Serial data arrives in unpredictable chunks due to baud rate timing. Pattern matching requires complete lines, but data often splits mid-line, causing the same command to colorize differently on each run.
+
+2. **Tab completion broken** - The PTY layer intercepts terminal control sequences, preventing tab completion from working on the remote device.
+
+3. **Space pagination broken** - Similar issue: pressing space for "more" pagination doesn't work properly through the PTY wrapper.
+
+4. **Password visibility** - Unlike SSH pipe mode (where the SSH client handles password prompts directly), PTY wrap mode would display typed passwords on screen, creating security concerns for screen sharing, terminal logging, and shoulder surfing scenarios.
+
+**Current recommendation:** Use pipe mode (`ssh router | rt`) for the best experience. For serial console access, colorization is not currently supported.
+
+**What we tried:**
+
+The prototype used `portable-pty` to spawn commands in a pseudo-terminal with two threads: one passing stdin to the PTY, another reading PTY output, colorizing it, and writing to stdout. Several buffering strategies were attempted:
+
+1. **Direct passthrough** - Process data immediately as it arrives. Result: Highly inconsistent colorization because serial data splits unpredictably.
+
+2. **Line buffering** - Only process complete lines (wait for newline). Result: Prompts (which don't end with newlines) would get stuck and not display until the next line arrived.
+
+3. **Accumulation delay** - Add 5-20ms delay after each read to let more data accumulate before processing. Result: Improved consistency but still unreliable; also added noticeable latency.
+
+4. **Hybrid approach** - Buffer complete lines, flush incomplete data (like prompts) after accumulation. Result: Still inconsistent due to the fundamental timing unpredictability of serial data.
+
+The core issue is that serial/console data doesn't arrive in logical units - it arrives based on baud rate timing, which means a single line like `x1oz@BuffLab>` might arrive as `x1o`, then `z@Buff`, then `Lab>` in separate reads. No amount of buffering can reliably reassemble this without either blocking indefinitely or accepting inconsistent results.
+
+**Future possibility:** This could be revisited if:
+- A reliable line-buffering solution is found for serial timing issues
+- Terminal control sequence passthrough can be implemented
+- A secure password handling mechanism is developed
+
+The prototype code demonstrated that colorization *does work* when timing aligns, so the core concept is sound - it's the edge cases and user experience that need solving.
 
 ## 📝 License
 

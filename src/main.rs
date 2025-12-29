@@ -57,7 +57,7 @@ struct Cli {
     config_hash: bool,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    subcommand: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -81,12 +81,25 @@ enum Commands {
     },
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() {
+    if let Err(e) = run() {
+        // Silently ignore broken pipe (downstream closed)
+        if let Some(io_err) = e.downcast_ref::<std::io::Error>() {
+            if io_err.kind() == std::io::ErrorKind::BrokenPipe {
+                std::process::exit(0);
+            }
+        }
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Handle subcommands first
-    if let Some(command) = &cli.command {
-        match command {
+    if let Some(cmd) = &cli.subcommand {
+        match cmd {
             Commands::Completions { shell } => {
                 let mut cmd = Cli::command();
                 generate(*shell, &mut cmd, "rt", &mut io::stdout());
