@@ -1,6 +1,6 @@
 # RainbowTerm Configuration
 # Context-aware terminal colorizer
-# Config version: 0.2.18 (2025-12-28) - Brightened colors for dark backgrounds
+# Config version: 0.2.20 (2025-12-30) - Fix context rule default_color placement
 
 # Default profile to use when none is specified
 default_profile = "juniper"
@@ -2066,6 +2066,7 @@ capture_group = 1
 pattern = '''(?i)Half-Duplex'''
 state_key = "physical_link"
 priority = 200
+default_color = "gray-medium"
 
 [[profiles.juniper.contexts.rules.colors]]
 value = "Up"
@@ -2075,18 +2076,15 @@ color = "status-critical"
 value = "Down"
 color = "gray-medium"
 
-default_color = "gray-medium"
-
 [[profiles.juniper.contexts.rules]]
 pattern = '''(?i)Full-Duplex'''
 priority = 200
+default_color = "status-good"
 
 # No state_key means always apply the first color
 [[profiles.juniper.contexts.rules.colors]]
 value = "always"
 color = "status-good"
-
-default_color = "status-good"
 
 # =============================================================================
 # ERROR COUNTERS - Context-aware (UP interface = RED, DOWN interface = YELLOW)
@@ -2172,6 +2170,7 @@ default_color = "status-good"
 pattern = '''(?i)Input\s+bytes\s*:\s*(0)\s'''
 state_key = "physical_link"
 priority = 190
+default_color = "gray-medium"
 
 [[profiles.juniper.contexts.rules.colors]]
 value = "Up"
@@ -2180,14 +2179,13 @@ color = "status-warning"
 [[profiles.juniper.contexts.rules.colors]]
 value = "Down"
 color = "gray-medium"
-
-default_color = "gray-medium"
 
 # Zero output bytes on interface
 [[profiles.juniper.contexts.rules]]
 pattern = '''(?i)Output\s+bytes\s*:\s*(0)\s'''
 state_key = "physical_link"
 priority = 190
+default_color = "gray-medium"
 
 [[profiles.juniper.contexts.rules.colors]]
 value = "Up"
@@ -2196,14 +2194,13 @@ color = "status-warning"
 [[profiles.juniper.contexts.rules.colors]]
 value = "Down"
 color = "gray-medium"
-
-default_color = "gray-medium"
 
 # Zero input packets
 [[profiles.juniper.contexts.rules]]
 pattern = '''(?i)Input\s+packets\s*:\s*(0)\s'''
 state_key = "physical_link"
 priority = 190
+default_color = "gray-medium"
 
 [[profiles.juniper.contexts.rules.colors]]
 value = "Up"
@@ -2212,14 +2209,13 @@ color = "status-warning"
 [[profiles.juniper.contexts.rules.colors]]
 value = "Down"
 color = "gray-medium"
-
-default_color = "gray-medium"
 
 # Zero output packets
 [[profiles.juniper.contexts.rules]]
 pattern = '''(?i)Output\s+packets\s*:\s*(0)\s'''
 state_key = "physical_link"
 priority = 190
+default_color = "gray-medium"
 
 [[profiles.juniper.contexts.rules.colors]]
 value = "Up"
@@ -2228,8 +2224,6 @@ color = "status-warning"
 [[profiles.juniper.contexts.rules.colors]]
 value = "Down"
 color = "gray-medium"
-
-default_color = "gray-medium"
 
 # =============================================================================
 # UPTIME/STABILITY - Bell curve spectrum
