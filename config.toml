@@ -2048,6 +2048,21 @@ color = "status-good"
 priority = 156
 exclusive = true
 
+# LINK alarm/defect = no physical link (often just unplugged cable, not a real problem)
+[[profiles.juniper.patterns]]
+description = "LINK alarm (informational - no cable)"
+regex = '''Active alarms\s+:\s+LINK\b'''
+color = "status-warning"
+priority = 157
+exclusive = true
+
+[[profiles.juniper.patterns]]
+description = "LINK defect (informational - no cable)"
+regex = '''Active defects\s+:\s+LINK\b'''
+color = "status-warning"
+priority = 157
+exclusive = true
+
 [[profiles.juniper.patterns]]
 description = "Active alarms (problem exists)"
 regex = '''Active alarms\s+:\s+\w+'''
