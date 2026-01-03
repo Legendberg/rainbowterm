@@ -153,33 +153,40 @@ impl ContextEngine {
             if let Some(state) = self.states.get(&context.name) {
                 for rule in &context.rules {
                     for cap in rule.regex.captures_iter(line) {
-                        if let Some(m) = cap.get(0) {
-                            // Determine color based on state
-                            let color = if let Some(state_key) = &rule.state_key {
-                                if let Some(state_value) = state.get(state_key) {
-                                    // Look up color for this state value
-                                    rule.color_mappings
-                                        .get(state_value)
-                                        .or(rule.default_color.as_ref())
-                                        .map(|c| palette_resolver(c))
-                                        .unwrap_or_else(|| DEFAULT_COLOR.to_string())
-                                } else {
-                                    // State variable not set yet, use default
-                                    rule.default_color
-                                        .as_ref()
-                                        .map(|c| palette_resolver(c))
-                                        .unwrap_or_else(|| DEFAULT_COLOR.to_string())
-                                }
-                            } else {
-                                // No state dependency, use first color or default
+                        // Determine color based on state
+                        let color = if let Some(state_key) = &rule.state_key {
+                            if let Some(state_value) = state.get(state_key) {
+                                // Look up color for this state value
                                 rule.color_mappings
-                                    .values()
-                                    .next()
+                                    .get(state_value)
                                     .or(rule.default_color.as_ref())
                                     .map(|c| palette_resolver(c))
                                     .unwrap_or_else(|| DEFAULT_COLOR.to_string())
-                            };
+                            } else {
+                                // State variable not set yet, use default
+                                rule.default_color
+                                    .as_ref()
+                                    .map(|c| palette_resolver(c))
+                                    .unwrap_or_else(|| DEFAULT_COLOR.to_string())
+                            }
+                        } else {
+                            // No state dependency, use first color or default
+                            rule.color_mappings
+                                .values()
+                                .next()
+                                .or(rule.default_color.as_ref())
+                                .map(|c| palette_resolver(c))
+                                .unwrap_or_else(|| DEFAULT_COLOR.to_string())
+                        };
 
+                        // Color capture groups if present, otherwise color whole match
+                        if cap.len() > 1 {
+                            for i in 1..cap.len() {
+                                if let Some(m) = cap.get(i) {
+                                    colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
+                                }
+                            }
+                        } else if let Some(m) = cap.get(0) {
                             colored_parts.push(ColoredRange::new(m.start(), m.end(), color));
                         }
                     }

@@ -867,7 +867,7 @@ exclusive = true
 # Zero values (special case - grayed out)
 [[profiles.juniper.patterns]]
 description = "Zero packet/byte/rate counters"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(0)\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(0)\b'''
 color = "gray-medium"
 priority = 160
 exclusive = false
@@ -922,7 +922,7 @@ exclusive = true
 # Quintillions (19-21 digits): red → orange → yellow → green → blue → purple → pink
 [[profiles.juniper.patterns]]
 description = "Quintillions range (19-21 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
 color = { "1" = "status-critical", "2" = "mag-orange", "3" = "mag-yellow", "4" = "mag-green", "5" = "mag-blue", "6" = "mag-purple", "7" = "mag-pink" }
 priority = 157
 exclusive = true
@@ -930,7 +930,7 @@ exclusive = true
 # Quadrillions (16-18 digits): orange-red → orange → yellow → green → blue → purple
 [[profiles.juniper.patterns]]
 description = "Quadrillions range (16-18 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
 color = { "1" = "err-crimson", "2" = "mag-orange", "3" = "mag-yellow", "4" = "mag-green", "5" = "mag-blue", "6" = "mag-purple" }
 priority = 156
 exclusive = true
@@ -938,7 +938,7 @@ exclusive = true
 # Trillions (13-15 digits): orange → yellow → green → blue → purple
 [[profiles.juniper.patterns]]
 description = "Trillions range (13-15 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
 color = { "1" = "mag-orange", "2" = "mag-yellow", "3" = "mag-green", "4" = "mag-blue", "5" = "mag-purple" }
 priority = 155
 exclusive = true
@@ -946,7 +946,7 @@ exclusive = true
 # Billions (10-12 digits): yellow → green → blue → purple
 [[profiles.juniper.patterns]]
 description = "Billions range (10-12 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
 color = { "1" = "mag-yellow", "2" = "mag-green", "3" = "mag-blue", "4" = "mag-purple" }
 priority = 154
 exclusive = true
@@ -954,7 +954,7 @@ exclusive = true
 # Millions (7-9 digits): green → blue → purple
 [[profiles.juniper.patterns]]
 description = "Millions range (7-9 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})(\d{3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})(\d{3})(\d{3})\b'''
 color = { "1" = "mag-green", "2" = "mag-blue", "3" = "mag-purple" }
 priority = 153
 exclusive = true
@@ -962,7 +962,7 @@ exclusive = true
 # Thousands (4-6 digits): blue → purple
 [[profiles.juniper.patterns]]
 description = "Thousands range (4-6 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})(\d{3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})(\d{3})\b'''
 color = { "1" = "mag-blue", "2" = "mag-purple" }
 priority = 152
 exclusive = true
@@ -970,7 +970,7 @@ exclusive = true
 # Hundreds (1-3 digits): purple only
 [[profiles.juniper.patterns]]
 description = "Hundreds range (1-3 digits)"
-regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate)\s*:\s+(\d{1,3})\b'''
+regex = '''(?:Input\s+packets|Output\s+packets|Input\s+bytes|Output\s+bytes|Input\s+rate|Output\s+rate|Total\s+octets|Total\s+frames)\s*:\s+(\d{1,3})\b'''
 color = "mag-purple"
 priority = 151
 exclusive = true
@@ -1073,6 +1073,34 @@ description = "Queue counter - Hundreds (1-3 digits)"
 regex = '''\s{10,}([1-9]\d{0,2})\b'''
 color = "mag-purple"
 priority = 145
+exclusive = false
+
+# =============================================================================
+# MAC STATISTICS TABLE - Error counters in table format (no colons)
+# Format: "    CRC/Align errors                         1                0"
+# =============================================================================
+
+# MAC stats error - Zero (gray, healthy)
+[[profiles.juniper.patterns]]
+description = "MAC stats error - Zero"
+regex = '''^\s+(CRC/Align errors|Fragment frames|Jabber frames|Code violations|Oversized frames|FIFO errors)\s+(0)\b'''
+color = { "1" = "gray-medium", "2" = "gray-medium" }
+priority = 165
+exclusive = false
+
+# MAC stats error - Non-zero (red label, error spectrum for number)
+[[profiles.juniper.patterns]]
+description = "MAC stats error - Non-zero (thousands)"
+regex = '''^\s+(CRC/Align errors|Fragment frames|Jabber frames|Code violations|Oversized frames|FIFO errors)\s+([1-9]\d{0,2})(\d{3})\b'''
+color = { "1" = "status-critical", "2" = "err-orange", "3" = "err-yellow" }
+priority = 164
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "MAC stats error - Non-zero (1-999)"
+regex = '''^\s+(CRC/Align errors|Fragment frames|Jabber frames|Code violations|Oversized frames|FIFO errors)\s+([1-9]\d{0,2})\b'''
+color = { "1" = "status-critical", "2" = "err-yellow" }
+priority = 163
 exclusive = false
 
 # =============================================================================
@@ -1305,15 +1333,16 @@ priority = 90
 exclusive = false
 
 [[profiles.juniper.patterns]]
-description = "Ethernet Switching - Tagged VLAN"
-regex = '''\b(tagged)\b'''
+description = "Ethernet Switching - Tagged VLAN (in member lists)"
+# Match tagged/untagged only in VLAN member list context (after [ or ,)
+regex = '''(?:[\[,]\s*)(tagged)\b'''
 color = "cyan-bright"
 priority = 85
 exclusive = false
 
 [[profiles.juniper.patterns]]
-description = "Ethernet Switching - Untagged/Native VLAN"
-regex = '''\b(untagged)\b'''
+description = "Ethernet Switching - Untagged/Native VLAN (in member lists)"
+regex = '''(?:[\[,]\s*)(untagged)\b'''
 color = "gray-light"
 priority = 85
 exclusive = false
@@ -1959,10 +1988,12 @@ exclusive = true
 # SEMANTIC ERROR STATES - "Error: None" = healthy
 # =============================================================================
 
-# Any "X Error: None" pattern indicates healthy state (e.g., BPDU Error: None)
+# Any "X Error: None" pattern indicates healthy state (e.g., BPDU Error: None, Loop Detect PDU Error: None)
+# Lists known multi-word error types from Juniper output explicitly
+# Also matches plain "Error: None" without prefix
 [[profiles.juniper.patterns]]
 description = "Error: None (healthy)"
-regex = '''(?i)([\w-]+\s+Error):\s+(None)\b'''
+regex = '''(?i)((?:(?:BPDU|Loop Detect PDU|Ethernet-Switching|MAC-REWRITE|[\w-]+)\s+)?Error):\s+(None)\b'''
 color = { "1" = "status-good", "2" = "status-good" }
 priority = 205
 exclusive = false
@@ -1985,12 +2016,12 @@ exclusive = false
 # Input errors, Output errors, Errors, Drops, Framing errors, Runts, Giants,
 # Collisions, CRC errors, FIFO errors, MTU errors, Resource errors,
 # Policed discards, Aged packets, L2 channel errors, L2 mismatch timeouts,
-# L3 incompletes, HS link CRC errors, Carrier transitions
+# L3 incompletes, HS link CRC errors, Carrier transitions, Fragment frames, Jabber frames
 
 # Error counter: 0 (healthy) - gray label + green 0
 [[profiles.juniper.patterns]]
 description = "Error counter: 0 (healthy)"
-regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(0)\b'''
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC(?:/Align)? errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions|Fragment frames|Jabber frames):\s+(0)\b'''
 color = { "1" = "gray-medium", "2" = "status-good" }
 priority = 178
 exclusive = false
@@ -1998,7 +2029,7 @@ exclusive = false
 # Error counter - trillions (13-15 digits): red label + error spectrum
 [[profiles.juniper.patterns]]
 description = "Error counter - trillions (catastrophic)"
-regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC(?:/Align)? errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions|Fragment frames|Jabber frames):\s+(\d{1,3})(\d{3})(\d{3})(\d{3})(\d{3})\b'''
 color = { "1" = "status-critical", "2" = "err-violet", "3" = "err-magenta", "4" = "err-crimson", "5" = "err-darkred", "6" = "err-red" }
 priority = 177
 exclusive = false
@@ -2006,7 +2037,7 @@ exclusive = false
 # Error counter - billions (10-12 digits): red label + error spectrum
 [[profiles.juniper.patterns]]
 description = "Error counter - billions (severe)"
-regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC(?:/Align)? errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions|Fragment frames|Jabber frames):\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
 color = { "1" = "status-critical", "2" = "err-magenta", "3" = "err-crimson", "4" = "err-darkred", "5" = "err-red" }
 priority = 176
 exclusive = false
@@ -2014,7 +2045,7 @@ exclusive = false
 # Error counter - millions (7-9 digits): red label + magnitude spectrum
 [[profiles.juniper.patterns]]
 description = "Error counter - millions (critical)"
-regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})(\d{3})\b'''
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC(?:/Align)? errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions|Fragment frames|Jabber frames):\s+(\d{1,3})(\d{3})(\d{3})\b'''
 color = { "1" = "status-critical", "2" = "err-crimson", "3" = "err-red", "4" = "err-orange" }
 priority = 174
 exclusive = false
@@ -2022,7 +2053,7 @@ exclusive = false
 # Error counter - thousands (4-6 digits): red label + magnitude spectrum
 [[profiles.juniper.patterns]]
 description = "Error counter - thousands (moderate)"
-regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+(\d{1,3})(\d{3})\b'''
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC(?:/Align)? errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions|Fragment frames|Jabber frames):\s+(\d{1,3})(\d{3})\b'''
 color = { "1" = "status-critical", "2" = "err-orange", "3" = "err-yellow" }
 priority = 173
 exclusive = false
@@ -2030,7 +2061,7 @@ exclusive = false
 # Error counter - hundreds (1-3 digits): red label + yellow number
 [[profiles.juniper.patterns]]
 description = "Error counter - hundreds (minor)"
-regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions):\s+([1-9]\d{0,2})\b'''
+regex = '''(?i)(Input errors|Output errors|Errors|Drops|Framing errors|Runts|Giants|Collisions|CRC(?:/Align)? errors|FIFO errors|MTU errors|Resource errors|Policed discards|Aged packets|L2 channel errors|L2 mismatch timeouts|L3 incompletes|HS link CRC errors|Carrier transitions|Fragment frames|Jabber frames):\s+([1-9]\d{0,2})\b'''
 color = { "1" = "status-critical", "2" = "err-yellow" }
 priority = 172
 exclusive = false

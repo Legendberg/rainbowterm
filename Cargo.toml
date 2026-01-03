@@ -27,6 +27,9 @@ dirs = "6.0"
 blake3 = "1.5"
 similar = "2.6"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [features]
 default = []
 convert = ["serde_yaml"]  # DEPRECATED: ChromaTerm YAML conversion (uses unmaintained serde_yaml)

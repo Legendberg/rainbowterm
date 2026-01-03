@@ -535,6 +535,7 @@ dependencies = [
  "clap_complete",
  "criterion",
  "dirs",
+ "libc",
  "regex",
  "serde",
  "serde_yaml",

@@ -5,6 +5,9 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 
+#[cfg(unix)]
+extern crate libc;
+
 mod config;
 mod context;
 mod matching;
@@ -14,6 +17,26 @@ mod convert;
 
 use config::{parse_hex_color, ColoredRange, Config};
 use context::ContextEngine;
+
+/// Regex pattern for ANSI escape sequences
+/// Matches: CSI sequences (\x1b[...m), OSC sequences (\x1b]...\x07), and other escapes
+static ANSI_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn get_ansi_regex() -> &'static Regex {
+    ANSI_REGEX.get_or_init(|| {
+        // Match ANSI escape sequences:
+        // - CSI: \x1b[ followed by params and a letter (most common, like colors)
+        // - OSC: \x1b] followed by data and BEL (\x07) or ST (\x1b\\)
+        // - Simple escapes: \x1b followed by single char
+        // - 8-bit CSI: \x9b followed by params and letter
+        Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\|\x1b[^\[0-9]|\x9b[0-9;]*[A-Za-z]").unwrap()
+    })
+}
+
+/// Strip ANSI escape codes from input text
+fn strip_ansi_codes(text: &str) -> String {
+    get_ansi_regex().replace_all(text, "").to_string()
+}
 
 #[derive(Parser)]
 #[command(name = "rainbowterm")]
@@ -43,6 +66,10 @@ struct Cli {
     /// Disable context-aware state machine (pure regex mode)
     #[arg(long)]
     no_context: bool,
+
+    /// Strip ANSI escape codes from input (useful for SSH sessions with terminal emulation)
+    #[arg(long)]
+    strip_ansi: bool,
 
     /// Update user config with embedded defaults (smart merge for custom configs)
     #[arg(long)]
@@ -231,12 +258,12 @@ fn run() -> anyhow::Result<()> {
             )
         })?;
         eprintln!("Using profile: {}", profile_name);
-        return run_colorizer(&config, &profile, cli.no_color, cli.no_context, None);
+        return run_colorizer(&config, &profile, cli.no_color, cli.no_context, cli.strip_ansi, None);
     }
 
     // Auto-detect profile from input (default behavior)
     if !cli.no_auto_detect {
-        return run_with_auto_detect(&config, cli.no_color, cli.no_context);
+        return run_with_auto_detect(&config, cli.no_color, cli.no_context, cli.strip_ansi);
     }
 
     // Fallback: use default profile (when --no-auto-detect is set)
@@ -255,7 +282,7 @@ fn run() -> anyhow::Result<()> {
     })?;
 
     eprintln!("Using default profile: {}", default_name);
-    run_colorizer(&config, &profile, cli.no_color, cli.no_context, None)
+    run_colorizer(&config, &profile, cli.no_color, cli.no_context, cli.strip_ansi, None)
 }
 
 /// Run with auto-detection: buffer initial input, detect profile, then process
@@ -263,6 +290,7 @@ fn run_with_auto_detect(
     config: &Config,
     no_color: bool,
     no_context: bool,
+    strip_ansi: bool,
 ) -> anyhow::Result<()> {
     use io::Read;
 
@@ -311,7 +339,7 @@ fn run_with_auto_detect(
     drop(stdin_handle); // Release lock before running colorizer
 
     // Run colorizer with buffered data
-    run_colorizer(config, &profile, no_color, no_context, Some(buffer))
+    run_colorizer(config, &profile, no_color, no_context, strip_ansi, Some(buffer))
 }
 
 /// Helper function to process and output a single chunk
@@ -322,10 +350,18 @@ fn process_and_output_chunk(
     compiled_patterns: &[matching::CompiledPattern],
     context_engine: &mut Option<ContextEngine>,
     config: &Config,
+    strip_ansi: bool,
 ) -> anyhow::Result<()> {
+    // Strip ANSI codes if requested (for SSH sessions with terminal emulation)
+    let clean_data: std::borrow::Cow<str> = if strip_ansi {
+        std::borrow::Cow::Owned(strip_ansi_codes(data))
+    } else {
+        std::borrow::Cow::Borrowed(data)
+    };
+
     // Update context state first (before applying patterns)
     if let Some(ref mut engine) = context_engine {
-        engine.process_line(data);
+        engine.process_line(&clean_data);
     }
 
     // Collect colored ranges from context rules and patterns
@@ -333,18 +369,18 @@ fn process_and_output_chunk(
 
     // Context-aware rules (highest priority)
     if let Some(ref engine) = context_engine {
-        colored_parts.extend(engine.apply_rules(data, &|c| config.resolve_color(c)));
+        colored_parts.extend(engine.apply_rules(&clean_data, &|c| config.resolve_color(c)));
     }
 
     // Regular pattern matching (lower priority)
-    colored_parts.extend(matching::apply_patterns(data, compiled_patterns));
+    colored_parts.extend(matching::apply_patterns(&clean_data, compiled_patterns));
 
     // Sort and remove overlaps
     colored_parts.sort_by_key(|k| k.start);
     let final_parts = remove_overlapping_ranges(colored_parts);
 
-    // Render colored output
-    render_colored_output(stdout, data, &final_parts)?;
+    // Render colored output (use clean_data which has ANSI stripped)
+    render_colored_output(stdout, &clean_data, &final_parts)?;
     write!(stdout, "{}", separator)?;
 
     Ok(())
@@ -390,6 +426,7 @@ fn run_colorizer(
     profile: &config::Profile,
     no_color: bool,
     no_context: bool,
+    strip_ansi: bool,
     initial_data: Option<Vec<u8>>,
 ) -> anyhow::Result<()> {
     let color_choice = if no_color { ColorChoice::Never } else { ColorChoice::Always };
@@ -400,7 +437,7 @@ fn run_colorizer(
     let mut context_engine = setup_context_engine(profile, no_context);
 
     // Process stdin in chunks (with optional initial data from auto-detect)
-    process_stdin(&mut stdout, &compiled_patterns, &mut context_engine, config, initial_data)
+    process_stdin(&mut stdout, &compiled_patterns, &mut context_engine, config, strip_ansi, initial_data)
 }
 
 /// Setup context engine if enabled
@@ -423,52 +460,110 @@ fn process_stdin(
     patterns: &[matching::CompiledPattern],
     context_engine: &mut Option<ContextEngine>,
     config: &Config,
+    strip_ansi: bool,
     initial_data: Option<Vec<u8>>,
 ) -> anyhow::Result<()> {
     use io::Read;
 
     const READ_SIZE: usize = 8192;
     const BATCH_DELAY_MS: u64 = 10;
+    const PROMPT_TIMEOUT_MS: u64 = 50; // Flush incomplete lines after this timeout
 
     let split_regex = Regex::new(r"(\r\n?|\n)")?;
     let stdin = io::stdin();
-    let mut stdin_handle = stdin.lock();
     let mut buffer = Vec::new();
+
+    // Set stdin to non-blocking mode on Unix for prompt detection
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::AsRawFd;
+        let fd = stdin.as_raw_fd();
+        unsafe {
+            let flags = libc::fcntl(fd, libc::F_GETFL);
+            libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+        }
+    }
+
+    let mut stdin_handle = stdin.lock();
 
     // Process initial data if provided (from auto-detect)
     if let Some(initial) = initial_data {
         buffer.extend(initial);
         let text = String::from_utf8_lossy(&buffer);
-        for (data, sep) in split_text_chunks(&text, &split_regex) {
-            process_and_output_chunk(&data, &sep, stdout, patterns, context_engine, config)?;
+        let chunks = split_text_chunks(&text, &split_regex);
+
+        // Process only complete lines (those with a separator)
+        // Keep incomplete lines in buffer for next iteration
+        let mut processed_bytes = 0;
+        for (data, sep) in &chunks {
+            if sep.is_empty() {
+                // Incomplete line - keep in buffer
+                break;
+            }
+            process_and_output_chunk(data, sep, stdout, patterns, context_engine, config, strip_ansi)?;
+            processed_bytes += data.len() + sep.len();
         }
-        buffer.clear();
+
+        // Keep only the unprocessed part in buffer
+        if processed_bytes > 0 {
+            buffer = buffer[processed_bytes..].to_vec();
+        }
         io::stdout().flush()?;
     }
 
     loop {
         let mut chunk = vec![0u8; READ_SIZE];
-        let bytes_read = stdin_handle.read(&mut chunk)?;
+        let read_result = stdin_handle.read(&mut chunk);
 
-        if bytes_read == 0 {
-            // EOF - process remaining data
-            if !buffer.is_empty() {
-                let text = String::from_utf8_lossy(&buffer);
-                process_and_output_chunk(&text, "", stdout, patterns, context_engine, config)?;
+        let bytes_read = match read_result {
+            Ok(0) => {
+                // EOF - process remaining data (even incomplete lines)
+                if !buffer.is_empty() {
+                    let text = String::from_utf8_lossy(&buffer);
+                    process_and_output_chunk(&text, "", stdout, patterns, context_engine, config, strip_ansi)?;
+                }
+                break;
             }
-            break;
-        }
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // No data available right now (non-blocking mode)
+                // If we have buffered incomplete data, it's likely a prompt - output it
+                if !buffer.is_empty() {
+                    let text = String::from_utf8_lossy(&buffer);
+                    process_and_output_chunk(&text, "", stdout, patterns, context_engine, config, strip_ansi)?;
+                    buffer.clear();
+                    io::stdout().flush()?;
+                }
+                // Small sleep before trying again to avoid busy-waiting
+                std::thread::sleep(std::time::Duration::from_millis(PROMPT_TIMEOUT_MS));
+                continue;
+            }
+            Err(e) => return Err(e.into()),
+        };
 
         buffer.extend_from_slice(&chunk[..bytes_read]);
         std::thread::sleep(std::time::Duration::from_millis(BATCH_DELAY_MS));
 
-        // Split and process chunks
+        // Split and process only complete lines
         let text = String::from_utf8_lossy(&buffer);
-        for (data, sep) in split_text_chunks(&text, &split_regex) {
-            process_and_output_chunk(&data, &sep, stdout, patterns, context_engine, config)?;
+        let chunks = split_text_chunks(&text, &split_regex);
+
+        // Process only complete lines (those with a separator)
+        // Keep incomplete lines in buffer for next iteration
+        let mut processed_bytes = 0;
+        for (data, sep) in &chunks {
+            if sep.is_empty() {
+                // Incomplete line - keep in buffer for next chunk
+                break;
+            }
+            process_and_output_chunk(data, sep, stdout, patterns, context_engine, config, strip_ansi)?;
+            processed_bytes += data.len() + sep.len();
         }
 
-        buffer.clear();
+        // Keep only the unprocessed part in buffer
+        if processed_bytes > 0 {
+            buffer = buffer[processed_bytes..].to_vec();
+        }
         io::stdout().flush()?;
     }
 
@@ -622,7 +717,7 @@ fn handle_init(install: bool) -> anyhow::Result<()> {
             eprintln!("Unsupported shell: {}", shell_name);
             eprintln!("Supported shells: zsh, bash");
             eprintln!("\nManual setup: Add this to your shell's rc file:");
-            eprintln!("  ssh() {{ /usr/bin/ssh \"$@\" | rt; }}");
+            eprintln!("  ssh() {{ /usr/bin/ssh \"$@\" | rt --strip-ansi; }}");
             return Ok(());
         }
     };
@@ -634,7 +729,7 @@ fn handle_init(install: bool) -> anyhow::Result<()> {
     let shell_function = format!(
         r#"
 # RainbowTerm: Automatic SSH colorization
-ssh() {{ {} "$@" | rt; }}"#,
+ssh() {{ {} "$@" | rt --strip-ansi; }}"#,
         ssh_path
     );
 
