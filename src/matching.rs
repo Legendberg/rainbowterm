@@ -464,4 +464,34 @@ mod tests {
         assert_eq!(compiled[1].2, 50);
         assert_eq!(compiled[2].2, 10);
     }
+
+    #[test]
+    fn test_count_juniper_patterns() {
+        use std::path::Path;
+
+        // Load the actual config
+        let config = Config::from_file(Path::new("config.toml")).unwrap();
+        let profile = config.get_profile("juniper").unwrap();
+
+        println!("\nJuniper profile has {} patterns total", profile.patterns.len());
+
+        // Find MAC stats second column patterns
+        let second_col: Vec<_> = profile.patterns.iter()
+            .filter(|p| p.description.contains("MAC stats second column"))
+            .collect();
+
+        println!("MAC stats second column patterns: {}", second_col.len());
+        for p in &second_col {
+            println!("  - {} (pri={})", p.description, p.priority);
+        }
+
+        // Print last 15 patterns to see where we stopped
+        println!("\nLast 15 patterns:");
+        let start = if profile.patterns.len() > 15 { profile.patterns.len() - 15 } else { 0 };
+        for (i, p) in profile.patterns.iter().skip(start).enumerate() {
+            println!("  {}. {} (pri={})", start + i + 1, p.description, p.priority);
+        }
+
+        assert!(second_col.len() >= 5, "Should have at least 5 MAC stats second column patterns");
+    }
 }

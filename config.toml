@@ -1076,9 +1076,87 @@ priority = 145
 exclusive = false
 
 # =============================================================================
-# MAC STATISTICS TABLE - Error counters in table format (no colons)
+# MAC STATISTICS TABLE - Traffic and error counters in table format (no colons)
+# Format: "    Total octets                           284       1787118417"
 # Format: "    CRC/Align errors                         1                0"
 # =============================================================================
+
+# MAC stats traffic - Zero (gray)
+[[profiles.juniper.patterns]]
+description = "MAC stats traffic - Zero"
+regex = '''^\s+(Total octets|Total packets|Unicast packets|Broadcast packets|Multicast packets|MAC control frames|MAC pause frames)\s+(0)\b'''
+color = { "1" = "gray-medium", "2" = "gray-medium" }
+priority = 165
+exclusive = false
+
+# MAC stats traffic - Billions (10-12 digits)
+[[profiles.juniper.patterns]]
+description = "MAC stats traffic - Billions"
+regex = '''^\s+(Total octets|Total packets|Unicast packets|Broadcast packets|Multicast packets|MAC control frames|MAC pause frames)\s+(\d{1,3})(\d{3})(\d{3})(\d{3})\b'''
+color = { "1" = "gray-medium", "2" = "mag-yellow", "3" = "mag-green", "4" = "mag-blue", "5" = "mag-purple" }
+priority = 168
+exclusive = false
+
+# MAC stats traffic - Millions (7-9 digits)
+[[profiles.juniper.patterns]]
+description = "MAC stats traffic - Millions"
+regex = '''^\s+(Total octets|Total packets|Unicast packets|Broadcast packets|Multicast packets|MAC control frames|MAC pause frames)\s+(\d{1,3})(\d{3})(\d{3})\b'''
+color = { "1" = "gray-medium", "2" = "mag-green", "3" = "mag-blue", "4" = "mag-purple" }
+priority = 167
+exclusive = false
+
+# MAC stats traffic - Thousands (4-6 digits)
+[[profiles.juniper.patterns]]
+description = "MAC stats traffic - Thousands"
+regex = '''^\s+(Total octets|Total packets|Unicast packets|Broadcast packets|Multicast packets|MAC control frames|MAC pause frames)\s+(\d{1,3})(\d{3})\b'''
+color = { "1" = "gray-medium", "2" = "mag-blue", "3" = "mag-purple" }
+priority = 166
+exclusive = false
+
+# MAC stats traffic - Hundreds (1-3 digits)
+[[profiles.juniper.patterns]]
+description = "MAC stats traffic - Hundreds"
+regex = '''^\s+(Total octets|Total packets|Unicast packets|Broadcast packets|Multicast packets|MAC control frames|MAC pause frames)\s+([1-9]\d{0,2})\b'''
+color = { "1" = "gray-medium", "2" = "mag-purple" }
+priority = 165
+exclusive = false
+
+# MAC stats - Second column (Transmit) values after 5+ spaces
+# These match the second number in two-column MAC statistics rows
+[[profiles.juniper.patterns]]
+description = "MAC stats second column - Billions"
+regex = '''\s{5,}(\d{1,3})(\d{3})(\d{3})(\d{3})$'''
+color = { "1" = "mag-yellow", "2" = "mag-green", "3" = "mag-blue", "4" = "mag-purple" }
+priority = 144
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "MAC stats second column - Millions"
+regex = '''\s{5,}(\d{1,3})(\d{3})(\d{3})$'''
+color = { "1" = "mag-green", "2" = "mag-blue", "3" = "mag-purple" }
+priority = 143
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "MAC stats second column - Thousands"
+regex = '''\s{5,}(\d{1,3})(\d{3})$'''
+color = { "1" = "mag-blue", "2" = "mag-purple" }
+priority = 142
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "MAC stats second column - Hundreds"
+regex = '''\s{5,}([1-9]\d{0,2})$'''
+color = "mag-purple"
+priority = 141
+exclusive = false
+
+[[profiles.juniper.patterns]]
+description = "MAC stats second column - Zero"
+regex = '''\s{5,}(0)$'''
+color = "gray-medium"
+priority = 140
+exclusive = false
 
 # MAC stats error - Zero (gray, healthy)
 [[profiles.juniper.patterns]]

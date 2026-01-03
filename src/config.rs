@@ -515,4 +515,23 @@ mod tests {
         "##;
         assert!(Config::parse(toml).is_ok());
     }
+
+    #[test]
+    fn test_parse_embedded_config() {
+        const CONFIG: &str = include_str!("../config.toml");
+        let config = Config::parse(CONFIG).unwrap();
+
+        let juniper_raw = config.profiles.get("juniper").unwrap();
+        println!("Direct parse - juniper raw patterns: {}", juniper_raw.patterns.len());
+
+        let second_col: Vec<_> = juniper_raw.patterns.iter()
+            .filter(|p| p.description.contains("MAC stats second column"))
+            .collect();
+        println!("Direct parse - MAC stats second column: {}", second_col.len());
+        for p in &second_col {
+            println!("  - {} (pri={})", p.description, p.priority);
+        }
+
+        assert_eq!(second_col.len(), 5, "Should have 5 MAC stats second column patterns");
+    }
 }
