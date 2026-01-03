@@ -344,6 +344,9 @@ cat output.txt | rt --no-auto-detect
 # Disable context awareness
 tail -f /var/log/messages | rt --no-context
 
+# Preserve ANSI codes from input (default: stripped for cleaner matching)
+cat pre-colored.txt | rt --preserve-ansi
+
 # List available profiles
 rt --list-profiles
 ```

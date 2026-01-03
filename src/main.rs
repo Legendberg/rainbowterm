@@ -67,9 +67,9 @@ struct Cli {
     #[arg(long)]
     no_context: bool,
 
-    /// Strip ANSI escape codes from input (useful for SSH sessions with terminal emulation)
+    /// Preserve ANSI escape codes from input (default: strip them for cleaner pattern matching)
     #[arg(long)]
-    strip_ansi: bool,
+    preserve_ansi: bool,
 
     /// Update user config with embedded defaults (smart merge for custom configs)
     #[arg(long)]
@@ -258,12 +258,12 @@ fn run() -> anyhow::Result<()> {
             )
         })?;
         eprintln!("Using profile: {}", profile_name);
-        return run_colorizer(&config, &profile, cli.no_color, cli.no_context, cli.strip_ansi, None);
+        return run_colorizer(&config, &profile, cli.no_color, cli.no_context, !cli.preserve_ansi, None);
     }
 
     // Auto-detect profile from input (default behavior)
     if !cli.no_auto_detect {
-        return run_with_auto_detect(&config, cli.no_color, cli.no_context, cli.strip_ansi);
+        return run_with_auto_detect(&config, cli.no_color, cli.no_context, !cli.preserve_ansi);
     }
 
     // Fallback: use default profile (when --no-auto-detect is set)
@@ -282,7 +282,7 @@ fn run() -> anyhow::Result<()> {
     })?;
 
     eprintln!("Using default profile: {}", default_name);
-    run_colorizer(&config, &profile, cli.no_color, cli.no_context, cli.strip_ansi, None)
+    run_colorizer(&config, &profile, cli.no_color, cli.no_context, !cli.preserve_ansi, None)
 }
 
 /// Run with auto-detection: buffer initial input, detect profile, then process
@@ -717,7 +717,7 @@ fn handle_init(install: bool) -> anyhow::Result<()> {
             eprintln!("Unsupported shell: {}", shell_name);
             eprintln!("Supported shells: zsh, bash");
             eprintln!("\nManual setup: Add this to your shell's rc file:");
-            eprintln!("  ssh() {{ /usr/bin/ssh \"$@\" | rt --strip-ansi; }}");
+            eprintln!("  ssh() {{ /usr/bin/ssh \"$@\" | rt; }}");
             return Ok(());
         }
     };
@@ -729,13 +729,14 @@ fn handle_init(install: bool) -> anyhow::Result<()> {
     let shell_function = format!(
         r#"
 # RainbowTerm: Automatic SSH colorization
-ssh() {{ {} "$@" | rt --strip-ansi; }}"#,
+ssh() {{ {} "$@" | rt; }}"#,
         ssh_path
     );
 
     // Check if already installed
     let rc_content = std::fs::read_to_string(&rc_file).unwrap_or_default();
     let already_installed = rc_content.contains("| rt;")
+        || rc_content.contains("| rt --")
         || rc_content.contains("|rt;")
         || rc_content.contains("| rt }");
 
