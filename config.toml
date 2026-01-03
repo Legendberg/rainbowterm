@@ -674,6 +674,22 @@ priority = 10
 exclusive = false
 case_insensitive = false
 
+# Hold-times - "Up" and "Down" are just labels here, not status indicators
+[[profiles.base.patterns]]
+description = "Hold-times labels (not status)"
+regex = '''Hold-times\s+:\s+(Up)\s+\d+\s*m?s?,\s+(Down)\s+\d+\s*m?s?'''
+color = { "1" = "gray-medium", "2" = "gray-medium" }
+priority = 50
+exclusive = true
+
+# Link flags: None = healthy (no issues)
+[[profiles.base.patterns]]
+description = "Link flags - None (healthy)"
+regex = '''Link flags\s+:\s+(None)\b'''
+color = "status-good"
+priority = 50
+exclusive = true
+
 # =============================================================================
 # JUNIPER PROFILE
 # =============================================================================
