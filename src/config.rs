@@ -324,6 +324,12 @@ impl Config {
     /// Returns the profile name and resolved profile if a match is found
     pub fn detect_profile(&self, content: &str) -> Option<(String, Profile)> {
         let mut best_match: Option<(String, Profile, i32)> = None;
+        let debug = std::env::var("RT_DEBUG").is_ok();
+
+        if debug {
+            eprintln!("DEBUG: Auto-detect content ({} bytes):", content.len());
+            eprintln!("DEBUG: Content preview: {:?}", &content[..content.len().min(200)]);
+        }
 
         for (profile_name, profile) in &self.profiles {
             let mut score = 0;
@@ -331,9 +337,10 @@ impl Config {
             // Check hostname prefixes first (from [hostname_prefixes] section)
             if let Some(prefixes) = self.hostname_prefixes.get(profile_name) {
                 if !prefixes.is_empty() {
-                    // Build regex pattern from prefixes: \b(prefix1|prefix2)[a-z0-9\-_]*
+                    // Build regex pattern from prefixes: \b(prefix1|prefix2)[0-9]+[a-z0-9\-_]*
+                    // Require at least one digit after prefix to avoid matching words like "SWITCH"
                     let prefix_pattern = format!(
-                        r"(?i)\b({})[a-z0-9\-_]*",
+                        r"(?i)\b({})[0-9]+[a-z0-9\-_]*",
                         prefixes.iter()
                             .map(|p| regex::escape(p))
                             .collect::<Vec<_>>()
@@ -341,6 +348,9 @@ impl Config {
                     );
                     if let Ok(regex) = regex::Regex::new(&prefix_pattern) {
                         if regex.is_match(content) {
+                            if debug {
+                                eprintln!("DEBUG: {} hostname prefix matched: {}", profile_name, prefix_pattern);
+                            }
                             score += 50; // hostname match
                         }
                     }
@@ -359,18 +369,27 @@ impl Config {
                     "prompt" => {
                         // Check for CLI prompt patterns (high confidence)
                         if regex.is_match(content) {
+                            if debug {
+                                eprintln!("DEBUG: {} prompt matched: {}", profile_name, rule.pattern);
+                            }
                             score += 100;
                         }
                     }
                     "hostname" => {
                         // Hostname patterns in auto_detect (alternative to [hostname_prefixes])
                         if regex.is_match(content) {
+                            if debug {
+                                eprintln!("DEBUG: {} hostname matched: {}", profile_name, rule.pattern);
+                            }
                             score += 50;
                         }
                     }
                     "content" => {
                         // General content matching (lower confidence)
                         if regex.is_match(content) {
+                            if debug {
+                                eprintln!("DEBUG: {} content matched: {}", profile_name, rule.pattern);
+                            }
                             score += 25;
                         }
                     }
@@ -381,6 +400,10 @@ impl Config {
                         }
                     }
                 }
+            }
+
+            if debug && score > 0 {
+                eprintln!("DEBUG: {} total score: {}", profile_name, score);
             }
 
             // Update best match if this profile scored higher
