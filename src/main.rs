@@ -33,9 +33,157 @@ fn get_ansi_regex() -> &'static Regex {
     })
 }
 
-/// Strip ANSI escape codes from input text
+/// Regex for cursor save/restore pairs (used to remove RPROMPT content)
+static CURSOR_SAVE_RESTORE_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn get_cursor_save_restore_regex() -> &'static Regex {
+    CURSOR_SAVE_RESTORE_REGEX.get_or_init(|| {
+        // Match cursor save followed by anything until cursor restore
+        // Save: \x1b[s or \x1b7
+        // Restore: \x1b[u or \x1b8
+        // This captures RPROMPT content which is written between save/restore
+        Regex::new(r"(?:\x1b\[s|\x1b7)[\s\S]*?(?:\x1b\[u|\x1b8)").unwrap()
+    })
+}
+
+/// Regex for cursor forward/backward movement (powerlevel10k RPROMPT style)
+static CURSOR_MOVEMENT_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn get_cursor_movement_regex() -> &'static Regex {
+    CURSOR_MOVEMENT_REGEX.get_or_init(|| {
+        // Match cursor forward (large jump, >20 cols) followed by content until cursor backward
+        // \x1b[<n>C = cursor forward n columns
+        // \x1b[<n>D = cursor backward n columns
+        // This pattern is used by powerlevel10k for RPROMPT
+        Regex::new(r"\x1b\[[2-9][0-9]+C[\s\S]*?\x1b\[[0-9]+D").unwrap()
+    })
+}
+
+/// Regex for cursor backward (used to detect end of RPROMPT in streaming)
+static CURSOR_BACKWARD_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn get_cursor_backward_regex() -> &'static Regex {
+    CURSOR_BACKWARD_REGEX.get_or_init(|| {
+        // Match cursor backward by large amount (>50 cols) - indicates RPROMPT was printed
+        // Everything from cursor forward to this point should be removed
+        Regex::new(r"\x1b\[[5-9][0-9]+D|\x1b\[1[0-9]{2,}D").unwrap()
+    })
+}
+
+/// Regex for cursor forward (used to detect start of RPROMPT region)
+static CURSOR_FORWARD_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn get_cursor_forward_regex() -> &'static Regex {
+    CURSOR_FORWARD_REGEX.get_or_init(|| {
+        // Match cursor forward by large amount (>50 cols) - indicates RPROMPT positioning
+        Regex::new(r"\x1b\[[5-9][0-9]+C|\x1b\[1[0-9]{2,}C").unwrap()
+    })
+}
+
+/// Regex for powerlevel10k RPROMPT text pattern (fallback when escape sequences are chunked)
+static P10K_RPROMPT_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn get_p10k_rprompt_regex() -> &'static Regex {
+    P10K_RPROMPT_REGEX.get_or_init(|| {
+        // Match common p10k RPROMPT patterns:
+        // "with <user>@<host>" and "at HH:MM:SS"
+        // This is a fallback for when escape sequences are split across chunks
+        Regex::new(r"with\s+\w+@[\w\-\.]+(\s+at\s+\d{1,2}:\d{2}(:\d{2})?)?").unwrap()
+    })
+}
+
+/// Strip only the p10k RPROMPT text pattern (for use with --preserve-ansi)
+fn strip_p10k_rprompt_text(text: &str) -> String {
+    get_p10k_rprompt_regex().replace_all(text, "").to_string()
+}
+
+/// Strip ANSI escape codes from input text and handle terminal positioning
+///
+/// This handles RPROMPT and other terminal positioning:
+/// - Removes content between cursor save/restore pairs (RPROMPT method 1)
+/// - Removes content between cursor forward/backward movements (RPROMPT method 2, powerlevel10k)
+/// - Removes content after large cursor forward if no backward found (streaming chunks)
+/// - Strips all ANSI escape sequences
+/// - Handles `\r` (carriage return) by discarding text before it on the same line
+/// - Preserves `\r\n` as normal line endings
 fn strip_ansi_codes(text: &str) -> String {
-    get_ansi_regex().replace_all(text, "").to_string()
+    // First, remove content between cursor save/restore pairs
+    // This handles RPROMPT which is rendered: save cursor, move right, print, restore cursor
+    let without_rprompt = get_cursor_save_restore_regex().replace_all(text, "");
+
+    // Also remove content between cursor forward/backward movements (powerlevel10k style)
+    // Pattern: \x1b[96C ... \x1b[130D (jump right, print RPROMPT, jump back left)
+    let without_rprompt = get_cursor_movement_regex().replace_all(&without_rprompt, "");
+
+    // Handle streaming case: if we see cursor forward (large) without matching backward,
+    // remove everything from cursor forward to end of text (RPROMPT in partial chunk)
+    let without_rprompt = if get_cursor_forward_regex().is_match(&without_rprompt)
+        && !get_cursor_backward_regex().is_match(&without_rprompt)
+    {
+        // Has cursor forward but no cursor backward - truncate at cursor forward
+        get_cursor_forward_regex()
+            .split(&without_rprompt)
+            .next()
+            .unwrap_or("")
+            .to_string()
+            .into()
+    } else if get_cursor_backward_regex().is_match(&without_rprompt)
+        && !get_cursor_forward_regex().is_match(&without_rprompt)
+    {
+        // Has cursor backward but no cursor forward - this chunk is RPROMPT content, skip it
+        get_cursor_backward_regex()
+            .splitn(&without_rprompt, 2)
+            .nth(1)
+            .unwrap_or("")
+            .to_string()
+            .into()
+    } else {
+        without_rprompt
+    };
+
+    // Strip powerlevel10k RPROMPT text patterns (before ANSI stripping so it works in both modes)
+    // This handles cases where escape sequences were split across chunks
+    let without_rprompt = get_p10k_rprompt_regex().replace_all(&without_rprompt, "");
+
+    // Then strip remaining ANSI escape sequences
+    let stripped = get_ansi_regex().replace_all(&without_rprompt, "");
+
+    // Then handle carriage returns that aren't part of \r\n
+    // When \r appears alone, it means "go back to start of line" -
+    // text after \r overwrites text before it
+    let mut result = String::with_capacity(stripped.len());
+    let mut line_buffer = String::new();
+    let mut chars = stripped.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        match c {
+            '\r' => {
+                if chars.peek() == Some(&'\n') {
+                    // \r\n - normal line ending, flush buffer and add both
+                    result.push_str(&line_buffer);
+                    result.push('\r');
+                    result.push(chars.next().unwrap()); // consume \n
+                    line_buffer.clear();
+                } else {
+                    // \r alone - discard everything before it (simulates overwrite)
+                    line_buffer.clear();
+                }
+            }
+            '\n' => {
+                // Newline - flush buffer
+                result.push_str(&line_buffer);
+                result.push('\n');
+                line_buffer.clear();
+            }
+            _ => {
+                line_buffer.push(c);
+            }
+        }
+    }
+
+    // Don't forget remaining content
+    result.push_str(&line_buffer);
+    result
 }
 
 #[derive(Parser)]
@@ -82,6 +230,10 @@ struct Cli {
     /// Show config hash and version info
     #[arg(long)]
     config_hash: bool,
+
+    /// Suppress info messages (profile detection, etc.)
+    #[arg(short, long)]
+    quiet: bool,
 
     #[command(subcommand)]
     subcommand: Option<Commands>,
@@ -257,13 +409,15 @@ fn run() -> anyhow::Result<()> {
                 profile_name
             )
         })?;
-        eprintln!("Using profile: {}", profile_name);
+        if !cli.quiet {
+            eprintln!("Using profile: {}", profile_name);
+        }
         return run_colorizer(&config, &profile, cli.no_color, cli.no_context, !cli.preserve_ansi, None);
     }
 
     // Auto-detect profile from input (default behavior)
     if !cli.no_auto_detect {
-        return run_with_auto_detect(&config, cli.no_color, cli.no_context, !cli.preserve_ansi);
+        return run_with_auto_detect(&config, cli.no_color, cli.no_context, !cli.preserve_ansi, cli.quiet);
     }
 
     // Fallback: use default profile (when --no-auto-detect is set)
@@ -281,7 +435,9 @@ fn run() -> anyhow::Result<()> {
         )
     })?;
 
-    eprintln!("Using default profile: {}", default_name);
+    if !cli.quiet {
+        eprintln!("Using default profile: {}", default_name);
+    }
     run_colorizer(&config, &profile, cli.no_color, cli.no_context, !cli.preserve_ansi, None)
 }
 
@@ -291,6 +447,7 @@ fn run_with_auto_detect(
     no_color: bool,
     no_context: bool,
     strip_ansi: bool,
+    quiet: bool,
 ) -> anyhow::Result<()> {
     use io::Read;
 
@@ -319,7 +476,9 @@ fn run_with_auto_detect(
     let detected_profile = config.detect_profile(&initial_text);
 
     let (_profile_name, profile) = if let Some((name, prof)) = detected_profile {
-        eprintln!("Auto-detected profile: {}", name);
+        if !quiet {
+            eprintln!("Auto-detected profile: {}", name);
+        }
         (name, prof)
     } else {
         // Fall back to default profile
@@ -332,7 +491,9 @@ fn run_with_auto_detect(
         let prof = config.get_profile(default_name).ok_or_else(|| {
             anyhow::anyhow!("Default profile '{}' not found", default_name)
         })?;
-        eprintln!("Auto-detect: no match, using default profile: {}", default_name);
+        if !quiet {
+            eprintln!("Auto-detect: no match, using default profile: {}", default_name);
+        }
         (default_name.clone(), prof)
     };
 
@@ -352,11 +513,14 @@ fn process_and_output_chunk(
     config: &Config,
     strip_ansi: bool,
 ) -> anyhow::Result<()> {
+    // Always strip p10k RPROMPT text pattern (works with or without --preserve-ansi)
+    let data_without_rprompt = strip_p10k_rprompt_text(data);
+
     // Strip ANSI codes if requested (for SSH sessions with terminal emulation)
     let clean_data: std::borrow::Cow<str> = if strip_ansi {
-        std::borrow::Cow::Owned(strip_ansi_codes(data))
+        std::borrow::Cow::Owned(strip_ansi_codes(&data_without_rprompt))
     } else {
-        std::borrow::Cow::Borrowed(data)
+        std::borrow::Cow::Owned(data_without_rprompt)
     };
 
     // Update context state first (before applying patterns)
@@ -469,7 +633,9 @@ fn process_stdin(
     const BATCH_DELAY_MS: u64 = 10;
     const PROMPT_TIMEOUT_MS: u64 = 50; // Flush incomplete lines after this timeout
 
-    let split_regex = Regex::new(r"(\r\n?|\n)")?;
+    // Only split on actual line endings (\r\n or \n), NOT bare \r
+    // Bare \r (carriage return) is handled in strip_ansi_codes as terminal overwrite
+    let split_regex = Regex::new(r"(\r?\n)")?;
     let stdin = io::stdin();
     let mut buffer = Vec::new();
 
