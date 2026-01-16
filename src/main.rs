@@ -83,6 +83,9 @@ fn get_cursor_forward_regex() -> &'static Regex {
 /// Regex for powerlevel10k RPROMPT text pattern (fallback when escape sequences are chunked)
 static P10K_RPROMPT_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
 
+/// Regex for detecting Linux/Unix server banners (to auto-enable ANSI preservation)
+static LINUX_SERVER_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
 fn get_p10k_rprompt_regex() -> &'static Regex {
     P10K_RPROMPT_REGEX.get_or_init(|| {
         // Match common p10k RPROMPT patterns:
@@ -95,6 +98,20 @@ fn get_p10k_rprompt_regex() -> &'static Regex {
 /// Strip only the p10k RPROMPT text pattern (for use with --preserve-ansi)
 fn strip_p10k_rprompt_text(text: &str) -> String {
     get_p10k_rprompt_regex().replace_all(text, "").to_string()
+}
+
+fn get_linux_server_regex() -> &'static Regex {
+    LINUX_SERVER_REGEX.get_or_init(|| {
+        // Match Linux/Unix server indicators in SSH banners
+        // These indicate an interactive shell session that benefits from ANSI preservation
+        Regex::new(r"(?i)Linux\s+\w+\s+\d|Debian|Ubuntu|CentOS|Red\s*Hat|RHEL|Fedora|Arch\s+Linux|GNU/Linux|FreeBSD|OpenBSD|NetBSD|Darwin|macOS").unwrap()
+    })
+}
+
+/// Detect if the input looks like a Linux/Unix server (interactive shell session)
+/// Returns true if ANSI codes should be preserved for this session
+fn is_linux_server(text: &str) -> bool {
+    get_linux_server_regex().is_match(text)
 }
 
 /// Strip ANSI escape codes from input text and handle terminal positioning
@@ -475,6 +492,16 @@ fn run_with_auto_detect(
     // Detect profile from content
     let detected_profile = config.detect_profile(&initial_text);
 
+    // Auto-detect Linux/Unix servers and preserve ANSI for interactive shells
+    let effective_strip_ansi = if strip_ansi && is_linux_server(&initial_text) {
+        if !quiet {
+            eprintln!("Detected Linux/Unix server, preserving ANSI codes");
+        }
+        false // Don't strip ANSI for interactive shell sessions
+    } else {
+        strip_ansi
+    };
+
     let (_profile_name, profile) = if let Some((name, prof)) = detected_profile {
         if !quiet {
             eprintln!("Auto-detected profile: {}", name);
@@ -500,7 +527,7 @@ fn run_with_auto_detect(
     drop(stdin_handle); // Release lock before running colorizer
 
     // Run colorizer with buffered data
-    run_colorizer(config, &profile, no_color, no_context, strip_ansi, Some(buffer))
+    run_colorizer(config, &profile, no_color, no_context, effective_strip_ansi, Some(buffer))
 }
 
 /// Helper function to process and output a single chunk
