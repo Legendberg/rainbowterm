@@ -2,8 +2,6 @@
 tmp/
 .DS_Store
 
-# AI assistant context (project-specific, may contain local notes)
-claude.md
 
 # Test config files (device-specific configs)
 tests/**/cs*

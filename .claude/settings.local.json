@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo clippy:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo run:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "WebFetch(domain:releases.rs)",
+      "Bash(wc:*)",
+      "Bash(cargo doc:*)",
+      "Bash(rustdoc:*)",
+      "Bash(rt --version:*)",
+      "Bash(cat:*)",
+      "Bash(cargo install:*)",
+      "Bash(rt --update-config:*)",
+      "Bash(cargo tree:*)",
+      "Bash(git add:*)",
+      "Bash(cargo publish:*)"
+    ]
+  }
+}
