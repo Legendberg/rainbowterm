@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 /// Current embedded config version (must match config.toml header)
-pub const CURRENT_VERSION: &str = "0.2.20";
+pub const CURRENT_VERSION: &str = "0.2.22";
 
 /// Known stock config hashes (version -> blake3 hash)
 /// These hashes are computed from the full config.toml content including headers.
@@ -23,6 +23,7 @@ pub static KNOWN_HASHES: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     m.insert("0.2.16", "37326cf0d09c93ffe1bd6f02bee7cf56064a25a57b5f9079fc483287aeb77e1d");
     m.insert("0.2.17", "abf29875ef811b6d24b4fd64eb7634806b45722a7c16b5d689059fded4fa8b10");
     m.insert("0.2.20", "4397fa9d943d31f0290312d069e6e69baa6562817ca865be4f07dd046e428c3a");
+    m.insert("0.2.22", "9f2df232a06971aefb1876684ec31de578b9c7e7aae4a3076021f9cbdd0a19d1");
     m
 });
 
@@ -56,7 +57,7 @@ pub fn parse_config_version(content: &str) -> Option<String> {
         if line.starts_with("# Config version:") {
             // Extract version part: "0.2.12" from "# Config version: 0.2.12 (2025-12-23)"
             let after_colon = line.split(':').nth(1)?;
-            let version = after_colon.trim().split_whitespace().next()?;
+            let version = after_colon.split_whitespace().next()?;
             return Some(version.to_string());
         }
     }
@@ -87,6 +88,7 @@ pub fn is_stock_config(content: &str) -> Option<&'static str> {
 
 /// Compare two version strings (semver-like comparison)
 /// Returns: Less if a < b, Equal if a == b, Greater if a > b
+/// Missing version parts are treated as 0 (e.g., "1.0" == "1.0.0")
 pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
     let parse = |v: &str| -> Vec<u32> {
         v.split('.')
@@ -96,15 +98,18 @@ pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
 
     let va = parse(a);
     let vb = parse(b);
+    let max_len = va.len().max(vb.len());
 
-    for (pa, pb) in va.iter().zip(vb.iter()) {
-        match pa.cmp(pb) {
+    for i in 0..max_len {
+        let pa = va.get(i).copied().unwrap_or(0);
+        let pb = vb.get(i).copied().unwrap_or(0);
+        match pa.cmp(&pb) {
             std::cmp::Ordering::Equal => continue,
             other => return other,
         }
     }
 
-    va.len().cmp(&vb.len())
+    std::cmp::Ordering::Equal
 }
 
 #[cfg(test)]
@@ -138,5 +143,10 @@ mod tests {
         assert_eq!(compare_versions("0.2.15", "0.2.13"), Ordering::Greater);
         assert_eq!(compare_versions("0.3.0", "0.2.99"), Ordering::Greater);
         assert_eq!(compare_versions("1.0.0", "0.9.9"), Ordering::Greater);
+        // Test versions with different lengths (missing parts treated as 0)
+        assert_eq!(compare_versions("1.0", "1.0.0"), Ordering::Equal);
+        assert_eq!(compare_versions("1.0.0", "1.0"), Ordering::Equal);
+        assert_eq!(compare_versions("1.0", "1.0.1"), Ordering::Less);
+        assert_eq!(compare_versions("1.0.1", "1.0"), Ordering::Greater);
     }
 }

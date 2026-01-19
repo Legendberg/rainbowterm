@@ -1,4 +1,4 @@
-#![cfg(feature = "convert")]
+// This module is conditionally compiled via #[cfg(feature = "convert")] in lib.rs and main.rs
 
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -48,11 +48,11 @@ pub fn convert_yaml_to_toml(yaml_content: &str) -> anyhow::Result<String> {
     // Parse YAML
     let ct_config: ChromaTermConfig = serde_yaml::from_str(yaml_content)?;
 
-    // Create RainbowTerm config
-    let mut rt_config = Config::default();
-
-    // Copy palette
-    rt_config.palette = ct_config.palette.clone();
+    // Create RainbowTerm config with palette from ChromaTerm
+    let mut rt_config = Config {
+        palette: ct_config.palette.clone(),
+        ..Default::default()
+    };
 
     // Create a profile from the rules
     let mut profile = Profile {

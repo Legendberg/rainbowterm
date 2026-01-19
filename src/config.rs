@@ -225,6 +225,16 @@ impl Config {
     pub fn validate(&self) -> anyhow::Result<()> {
         let mut warnings = Vec::new();
 
+        // Validate default_profile exists if specified
+        if let Some(ref default_profile) = self.default_profile {
+            if !self.profiles.contains_key(default_profile) {
+                anyhow::bail!(
+                    "default_profile '{}' does not exist in profiles",
+                    default_profile
+                );
+            }
+        }
+
         for (profile_name, profile) in &self.profiles {
             // Check that inherited profiles exist
             for inherit in &profile.inherits {
@@ -284,13 +294,34 @@ impl Config {
         Ok(())
     }
 
-    /// Get a profile by name, with inheritance resolved
+    /// Get a profile by name, with inheritance resolved (including transitive inheritance)
     pub fn get_profile(&self, name: &str) -> Option<Profile> {
+        let mut visited = std::collections::HashSet::new();
+        self.resolve_profile_with_inheritance(name, &mut visited)
+    }
+
+    /// Helper to resolve profile with cycle detection
+    fn resolve_profile_with_inheritance(
+        &self,
+        name: &str,
+        visited: &mut std::collections::HashSet<String>,
+    ) -> Option<Profile> {
+        // Detect circular inheritance
+        if visited.contains(name) {
+            eprintln!(
+                "Warning: Circular inheritance detected for profile '{}', skipping",
+                name
+            );
+            return None;
+        }
+        visited.insert(name.to_string());
+
         let mut profile = self.profiles.get(name)?.clone();
 
-        // Resolve inheritance
+        // Resolve inheritance (including transitive)
         for inherit_name in &profile.inherits.clone() {
-            if let Some(parent) = self.profiles.get(inherit_name) {
+            // Recursively resolve parent profile (handles transitive inheritance)
+            if let Some(parent) = self.resolve_profile_with_inheritance(inherit_name, visited) {
                 // Merge patterns (parent first, then child overrides)
                 let mut merged_patterns = parent.patterns.clone();
                 merged_patterns.extend(profile.patterns.clone());

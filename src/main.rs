@@ -29,7 +29,8 @@ fn get_ansi_regex() -> &'static Regex {
         // - OSC: \x1b] followed by data and BEL (\x07) or ST (\x1b\\)
         // - Simple escapes: \x1b followed by single char
         // - 8-bit CSI: \x9b followed by params and letter
-        Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\|\x1b[^\[0-9]|\x9b[0-9;]*[A-Za-z]").unwrap()
+        Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\|\x1b[^\[0-9]|\x9b[0-9;]*[A-Za-z]")
+            .expect("ANSI regex pattern should be valid")
     })
 }
 
@@ -42,7 +43,9 @@ fn get_cursor_save_restore_regex() -> &'static Regex {
         // Save: \x1b[s or \x1b7
         // Restore: \x1b[u or \x1b8
         // This captures RPROMPT content which is written between save/restore
-        Regex::new(r"(?:\x1b\[s|\x1b7)[\s\S]*?(?:\x1b\[u|\x1b8)").unwrap()
+        // Bounded to 10000 chars to prevent ReDoS on malformed input
+        Regex::new(r"(?:\x1b\[s|\x1b7)[\s\S]{0,10000}?(?:\x1b\[u|\x1b8)")
+            .expect("cursor save/restore regex pattern should be valid")
     })
 }
 
@@ -51,11 +54,13 @@ static CURSOR_MOVEMENT_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::
 
 fn get_cursor_movement_regex() -> &'static Regex {
     CURSOR_MOVEMENT_REGEX.get_or_init(|| {
-        // Match cursor forward (large jump, >20 cols) followed by content until cursor backward
+        // Match cursor forward (large jump, >=20 cols) followed by content until cursor backward
         // \x1b[<n>C = cursor forward n columns
         // \x1b[<n>D = cursor backward n columns
         // This pattern is used by powerlevel10k for RPROMPT
-        Regex::new(r"\x1b\[[2-9][0-9]+C[\s\S]*?\x1b\[[0-9]+D").unwrap()
+        // Bounded to 10000 chars to prevent ReDoS on malformed input
+        Regex::new(r"\x1b\[(?:[2-9][0-9]|[1-9][0-9]{2,})C[\s\S]{0,10000}?\x1b\[[0-9]+D")
+            .expect("cursor movement regex pattern should be valid")
     })
 }
 
@@ -66,7 +71,8 @@ fn get_cursor_backward_regex() -> &'static Regex {
     CURSOR_BACKWARD_REGEX.get_or_init(|| {
         // Match cursor backward by large amount (>50 cols) - indicates RPROMPT was printed
         // Everything from cursor forward to this point should be removed
-        Regex::new(r"\x1b\[[5-9][0-9]+D|\x1b\[1[0-9]{2,}D").unwrap()
+        Regex::new(r"\x1b\[[5-9][0-9]+D|\x1b\[1[0-9]{2,}D")
+            .expect("cursor backward regex pattern should be valid")
     })
 }
 
@@ -76,7 +82,8 @@ static CURSOR_FORWARD_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::n
 fn get_cursor_forward_regex() -> &'static Regex {
     CURSOR_FORWARD_REGEX.get_or_init(|| {
         // Match cursor forward by large amount (>50 cols) - indicates RPROMPT positioning
-        Regex::new(r"\x1b\[[5-9][0-9]+C|\x1b\[1[0-9]{2,}C").unwrap()
+        Regex::new(r"\x1b\[[5-9][0-9]+C|\x1b\[1[0-9]{2,}C")
+            .expect("cursor forward regex pattern should be valid")
     })
 }
 
@@ -91,7 +98,8 @@ fn get_p10k_rprompt_regex() -> &'static Regex {
         // Match common p10k RPROMPT patterns:
         // "with <user>@<host>" and "at HH:MM:SS"
         // This is a fallback for when escape sequences are split across chunks
-        Regex::new(r"with\s+\w+@[\w\-\.]+(\s+at\s+\d{1,2}:\d{2}(:\d{2})?)?").unwrap()
+        Regex::new(r"with\s+\w+@[\w\-\.]+(\s+at\s+\d{1,2}:\d{2}(:\d{2})?)?")
+            .expect("p10k RPROMPT regex pattern should be valid")
     })
 }
 
@@ -104,7 +112,8 @@ fn get_linux_server_regex() -> &'static Regex {
     LINUX_SERVER_REGEX.get_or_init(|| {
         // Match Linux/Unix server indicators in SSH banners
         // These indicate an interactive shell session that benefits from ANSI preservation
-        Regex::new(r"(?i)Linux\s+\w+\s+\d|Debian|Ubuntu|CentOS|Red\s*Hat|RHEL|Fedora|Arch\s+Linux|GNU/Linux|FreeBSD|OpenBSD|NetBSD|Darwin|macOS").unwrap()
+        Regex::new(r"(?i)Linux\s+\w+\s+\d|Debian|Ubuntu|CentOS|Red\s*Hat|RHEL|Fedora|Arch\s+Linux|GNU/Linux|FreeBSD|OpenBSD|NetBSD|Darwin|macOS")
+            .expect("Linux server regex pattern should be valid")
     })
 }
 
@@ -582,7 +591,13 @@ fn remove_overlapping_ranges(ranges: Vec<ColoredRange>) -> Vec<ColoredRange> {
     let mut result = Vec::new();
     for range in ranges {
         let overlaps = result.iter().any(|r: &ColoredRange| {
-            (range.start >= r.start && range.start < r.end) || (range.end > r.start && range.end <= r.end)
+            // Check all overlap cases:
+            // 1. New range starts within existing range
+            // 2. New range ends within existing range
+            // 3. New range completely encloses existing range
+            (range.start >= r.start && range.start < r.end)
+                || (range.end > r.start && range.end <= r.end)
+                || (range.start <= r.start && range.end >= r.end)
         });
         if !overlaps {
             result.push(range);
@@ -673,7 +688,10 @@ fn process_stdin(
         let fd = stdin.as_raw_fd();
         unsafe {
             let flags = libc::fcntl(fd, libc::F_GETFL);
-            libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+            if flags != -1 {
+                libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+            }
+            // Silently continue if fcntl fails - prompt detection is optional
         }
     }
 
@@ -1417,7 +1435,7 @@ fn chrono_lite_date() -> String {
 }
 
 fn is_leap_year(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 /// Check config version and warn if stale (once per version)
