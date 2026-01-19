@@ -1,6 +1,6 @@
 # RainbowTerm Configuration
 # Context-aware terminal colorizer
-# Config version: 0.2.22 (2025-01-18)
+# Config version: 0.2.23 (2025-01-19)
 
 # Default profile to use when none is specified
 default_profile = "juniper"
