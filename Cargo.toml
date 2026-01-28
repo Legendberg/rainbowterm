@@ -1,6 +1,6 @@
 [package]
 name = "rainbowterm"
-version = "0.2.23"
+version = "0.2.24"
 edition = "2021"
 authors = ["RainbowTerm Contributors"]
 description = "Context-aware terminal colorizer with magnitude spectrum visualization for network device output"

@@ -191,7 +191,9 @@ fn strip_ansi_codes(text: &str) -> String {
                     result.push(chars.next().unwrap()); // consume \n
                     line_buffer.clear();
                 } else {
-                    // \r alone - discard everything before it (simulates overwrite)
+                    // \r alone - emit \r so terminal cursor repositions
+                    // (handles cross-chunk tab completion where previous text was already output)
+                    result.push('\r');
                     line_buffer.clear();
                 }
             }
