@@ -1,9 +1,12 @@
 # RainbowTerm Configuration
 # Context-aware terminal colorizer
-# Config version: 0.2.23 (2025-01-19)
+# Config version: 0.2.24 (2026-05-11)
 
-# Default profile to use when none is specified
-default_profile = "juniper"
+# Fallback profile when auto-detection fails, or when --no-auto-detect is used
+# without --profile. Defaults to "base" so unknown input gets only universal
+# patterns (IPs, MACs, dates, status keywords) rather than silently applying
+# vendor-specific rules that may mis-color the output.
+default_profile = "base"
 
 # =============================================================================
 # HOSTNAME PREFIXES - Customize for your organization

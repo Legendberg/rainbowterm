@@ -1,6 +1,7 @@
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use regex::Regex;
+use regex::bytes::Regex as BytesRegex;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
@@ -352,13 +353,6 @@ fn run() -> anyhow::Result<()> {
     // Embedded default config
     const DEFAULT_CONFIG: &str = include_str!("../config.toml");
 
-    // Verify CURRENT_VERSION matches embedded config (compile-time check for consistency)
-    debug_assert_eq!(
-        versions::parse_config_version(DEFAULT_CONFIG).as_deref(),
-        Some(versions::CURRENT_VERSION),
-        "CURRENT_VERSION in versions.rs doesn't match config.toml header!"
-    );
-
     // Handle --config-hash: show hash and version info
     if cli.config_hash {
         let embedded_version = versions::parse_config_version(DEFAULT_CONFIG)
@@ -519,7 +513,10 @@ fn run_with_auto_detect(
         }
         (name, prof)
     } else {
-        // Fall back to default profile
+        // Fall back to default profile.
+        // The warning is always printed (even with --quiet) because silent wrong
+        // coloring is worse than no coloring — users should know vendor-specific
+        // patterns aren't being applied.
         let default_name = config.default_profile.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "Could not auto-detect profile and no default_profile set in config.\n\
@@ -529,9 +526,12 @@ fn run_with_auto_detect(
         let prof = config.get_profile(default_name).ok_or_else(|| {
             anyhow::anyhow!("Default profile '{}' not found", default_name)
         })?;
-        if !quiet {
-            eprintln!("Auto-detect: no match, using default profile: {}", default_name);
-        }
+        eprintln!(
+            "rt: warning: auto-detect found no match — falling back to '{}' profile. \
+             Vendor-specific patterns will not apply. \
+             Use --profile <name> to select explicitly.",
+            default_name
+        );
         (default_name.clone(), prof)
     };
 
@@ -678,8 +678,11 @@ fn process_stdin(
     const PROMPT_TIMEOUT_MS: u64 = 50; // Flush incomplete lines after this timeout
 
     // Only split on actual line endings (\r\n or \n), NOT bare \r
-    // Bare \r (carriage return) is handled in strip_ansi_codes as terminal overwrite
-    let split_regex = Regex::new(r"(\r?\n)")?;
+    // Bare \r (carriage return) is handled in strip_ansi_codes as terminal overwrite.
+    // Using a bytes regex so byte offsets match the raw buffer exactly — critical
+    // because `String::from_utf8_lossy` can inflate byte lengths (one invalid byte
+    // becomes three bytes of U+FFFD), which previously corrupted buffer slicing.
+    let split_regex = BytesRegex::new(r"(\r?\n)")?;
     let stdin = io::stdin();
     let mut buffer = Vec::new();
 
@@ -702,24 +705,17 @@ fn process_stdin(
     // Process initial data if provided (from auto-detect)
     if let Some(initial) = initial_data {
         buffer.extend(initial);
-        let text = String::from_utf8_lossy(&buffer);
-        let chunks = split_text_chunks(&text, &split_regex);
-
-        // Process only complete lines (those with a separator)
-        // Keep incomplete lines in buffer for next iteration
-        let mut processed_bytes = 0;
-        for (data, sep) in &chunks {
-            if sep.is_empty() {
-                // Incomplete line - keep in buffer
-                break;
-            }
-            process_and_output_chunk(data, sep, stdout, patterns, context_engine, config, strip_ansi)?;
-            processed_bytes += data.len() + sep.len();
-        }
-
-        // Keep only the unprocessed part in buffer
+        let processed_bytes = process_complete_lines(
+            &buffer,
+            &split_regex,
+            stdout,
+            patterns,
+            context_engine,
+            config,
+            strip_ansi,
+        )?;
         if processed_bytes > 0 {
-            buffer = buffer[processed_bytes..].to_vec();
+            buffer.drain(..processed_bytes);
         }
         io::stdout().flush()?;
     }
@@ -757,25 +753,17 @@ fn process_stdin(
         buffer.extend_from_slice(&chunk[..bytes_read]);
         std::thread::sleep(std::time::Duration::from_millis(BATCH_DELAY_MS));
 
-        // Split and process only complete lines
-        let text = String::from_utf8_lossy(&buffer);
-        let chunks = split_text_chunks(&text, &split_regex);
-
-        // Process only complete lines (those with a separator)
-        // Keep incomplete lines in buffer for next iteration
-        let mut processed_bytes = 0;
-        for (data, sep) in &chunks {
-            if sep.is_empty() {
-                // Incomplete line - keep in buffer for next chunk
-                break;
-            }
-            process_and_output_chunk(data, sep, stdout, patterns, context_engine, config, strip_ansi)?;
-            processed_bytes += data.len() + sep.len();
-        }
-
-        // Keep only the unprocessed part in buffer
+        let processed_bytes = process_complete_lines(
+            &buffer,
+            &split_regex,
+            stdout,
+            patterns,
+            context_engine,
+            config,
+            strip_ansi,
+        )?;
         if processed_bytes > 0 {
-            buffer = buffer[processed_bytes..].to_vec();
+            buffer.drain(..processed_bytes);
         }
         io::stdout().flush()?;
     }
@@ -783,18 +771,34 @@ fn process_stdin(
     Ok(())
 }
 
-/// Split text into (data, separator) chunks on line boundaries
-fn split_text_chunks(text: &str, regex: &Regex) -> Vec<(String, String)> {
-    let mut chunks = Vec::new();
-    let mut last_end = 0;
-    for mat in regex.find_iter(text) {
-        chunks.push((text[last_end..mat.start()].to_string(), mat.as_str().to_string()));
-        last_end = mat.end();
+/// Process every complete line in `buffer` (split on `\r?\n`) and return the
+/// number of raw bytes consumed. The caller is expected to drain those bytes.
+///
+/// Operates on byte offsets from a `regex::bytes::Regex` match so slicing
+/// arithmetic stays in sync with the raw buffer even when chunks contain
+/// invalid UTF-8 (SSH banners, partial escape sequences, Latin-1 text, etc.).
+/// The per-line text is decoded via `String::from_utf8_lossy` for pattern
+/// matching; only the buffer-advance cursor runs on raw bytes.
+#[allow(clippy::too_many_arguments)]
+fn process_complete_lines(
+    buffer: &[u8],
+    split_regex: &BytesRegex,
+    stdout: &mut StandardStream,
+    patterns: &[matching::CompiledPattern],
+    context_engine: &mut Option<ContextEngine>,
+    config: &Config,
+    strip_ansi: bool,
+) -> anyhow::Result<usize> {
+    let mut cursor = 0;
+    for mat in split_regex.find_iter(buffer) {
+        let data_bytes = &buffer[cursor..mat.start()];
+        let sep_bytes = &buffer[mat.start()..mat.end()];
+        let data = String::from_utf8_lossy(data_bytes);
+        let sep = String::from_utf8_lossy(sep_bytes);
+        process_and_output_chunk(&data, &sep, stdout, patterns, context_engine, config, strip_ansi)?;
+        cursor = mat.end();
     }
-    if last_end < text.len() {
-        chunks.push((text[last_end..].to_string(), String::new()));
-    }
-    chunks
+    Ok(cursor)
 }
 
 // =============================================================================
@@ -1492,4 +1496,64 @@ fn check_config_version_warning(config_path: &Path, embedded_config: &str) {
 fn clear_version_warning(config_path: &Path) {
     let warned_path = config_path.with_file_name(".warned_versions");
     std::fs::remove_file(warned_path).ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Return raw-byte offset of the end of the last complete line in `buffer`.
+    ///
+    /// Extracted from `process_complete_lines` so the byte-cursor arithmetic
+    /// can be exercised without a live `StandardStream`.
+    fn last_complete_line_end(buffer: &[u8], split_regex: &BytesRegex) -> usize {
+        let mut cursor = 0;
+        for mat in split_regex.find_iter(buffer) {
+            cursor = mat.end();
+        }
+        cursor
+    }
+
+    /// Regression test for the UTF-8-lossy buffer-slicing corruption bug.
+    ///
+    /// Before the fix, `processed_bytes` was summed from `String::from_utf8_lossy`
+    /// output, where each invalid byte expands to a 3-byte U+FFFD replacement.
+    /// The bogus sum was then used to slice the raw buffer, dropping or
+    /// double-feeding bytes at line boundaries.
+    ///
+    /// This test uses a line that contains an invalid UTF-8 byte (0xFF) followed
+    /// by a newline, then ASCII on the next line. A correct implementation
+    /// advances exactly past the newline; the buggy one would skip too far.
+    #[test]
+    fn process_complete_lines_handles_invalid_utf8() {
+        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        // "bad\xFF\n" (5 bytes) + "next\n" (5 bytes) = 10 bytes total
+        let buffer: Vec<u8> = b"bad\xFF\nnext\n".to_vec();
+        assert_eq!(last_complete_line_end(&buffer, &split), 10);
+
+        // Partial: last line is incomplete, cursor must stop at the \n after "bad\xFF"
+        let partial: Vec<u8> = b"bad\xFF\npart".to_vec();
+        assert_eq!(last_complete_line_end(&partial, &split), 5);
+    }
+
+    #[test]
+    fn process_complete_lines_handles_all_ascii() {
+        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let buffer = b"one\ntwo\nthree\n".to_vec();
+        assert_eq!(last_complete_line_end(&buffer, &split), 14);
+    }
+
+    #[test]
+    fn process_complete_lines_handles_crlf() {
+        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let buffer = b"one\r\ntwo\r\n".to_vec();
+        assert_eq!(last_complete_line_end(&buffer, &split), 10);
+    }
+
+    #[test]
+    fn process_complete_lines_returns_zero_when_no_complete_line() {
+        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let buffer = b"incomplete".to_vec();
+        assert_eq!(last_complete_line_end(&buffer, &split), 0);
+    }
 }

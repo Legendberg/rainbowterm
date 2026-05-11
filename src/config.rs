@@ -221,11 +221,14 @@ impl Config {
         Ok(config)
     }
 
-    /// Validate configuration for common errors
+    /// Validate configuration: profile references and regex compilability.
+    ///
+    /// Invalid regex is a hard error rather than a warning. Silent
+    /// warnings on startup are easy to miss in piped stdout and leave the user
+    /// with a subtly broken config (patterns present in TOML but dropped at
+    /// compile time). Surfacing the first compile error up-front, including the
+    /// underlying regex engine message, is far more actionable.
     pub fn validate(&self) -> anyhow::Result<()> {
-        let mut warnings = Vec::new();
-
-        // Validate default_profile exists if specified
         if let Some(ref default_profile) = self.default_profile {
             if !self.profiles.contains_key(default_profile) {
                 anyhow::bail!(
@@ -236,7 +239,6 @@ impl Config {
         }
 
         for (profile_name, profile) in &self.profiles {
-            // Check that inherited profiles exist
             for inherit in &profile.inherits {
                 if !self.profiles.contains_key(inherit) {
                     anyhow::bail!(
@@ -247,48 +249,64 @@ impl Config {
                 }
             }
 
-            // Validate regex patterns compile
             for pattern in &profile.patterns {
                 let flags = if pattern.case_insensitive { "(?i)" } else { "" };
                 let full_regex = format!("{}{}", flags, pattern.regex);
-                if regex::Regex::new(&full_regex).is_err() {
-                    warnings.push(format!(
-                        "Profile '{}': Invalid regex in pattern '{}': {}",
-                        profile_name, pattern.description, pattern.regex
-                    ));
+                if let Err(e) = regex::Regex::new(&full_regex) {
+                    anyhow::bail!(
+                        "Profile '{}': invalid regex in pattern '{}': {}\n\
+                         Pattern: {}\n\
+                         Error:   {}",
+                        profile_name,
+                        pattern.description,
+                        pattern.regex,
+                        pattern.regex,
+                        e
+                    );
                 }
             }
 
-            // Validate context patterns compile
             for context in &profile.contexts {
-                if regex::Regex::new(&context.start).is_err() {
-                    warnings.push(format!(
-                        "Profile '{}': Invalid regex in context '{}' start pattern",
-                        profile_name, context.name
-                    ));
+                if let Err(e) = regex::Regex::new(&context.start) {
+                    anyhow::bail!(
+                        "Profile '{}': invalid regex in context '{}' start pattern: {}\n\
+                         Pattern: {}\n\
+                         Error:   {}",
+                        profile_name,
+                        context.name,
+                        context.start,
+                        context.start,
+                        e
+                    );
                 }
                 for tracker in &context.track {
-                    if regex::Regex::new(&tracker.pattern).is_err() {
-                        warnings.push(format!(
-                            "Profile '{}': Invalid regex in tracker '{}' pattern",
-                            profile_name, tracker.name
-                        ));
+                    if let Err(e) = regex::Regex::new(&tracker.pattern) {
+                        anyhow::bail!(
+                            "Profile '{}': invalid regex in tracker '{}' pattern: {}\n\
+                             Pattern: {}\n\
+                             Error:   {}",
+                            profile_name,
+                            tracker.name,
+                            tracker.pattern,
+                            tracker.pattern,
+                            e
+                        );
                     }
                 }
                 for rule in &context.rules {
-                    if regex::Regex::new(&rule.pattern).is_err() {
-                        warnings.push(format!(
-                            "Profile '{}': Invalid regex in context rule pattern: {}",
-                            profile_name, rule.pattern
-                        ));
+                    if let Err(e) = regex::Regex::new(&rule.pattern) {
+                        anyhow::bail!(
+                            "Profile '{}': invalid regex in context rule pattern: {}\n\
+                             Pattern: {}\n\
+                             Error:   {}",
+                            profile_name,
+                            rule.pattern,
+                            rule.pattern,
+                            e
+                        );
                     }
                 }
             }
-        }
-
-        // Print warnings but don't fail
-        for warning in warnings {
-            eprintln!("Warning: {}", warning);
         }
 
         Ok(())
