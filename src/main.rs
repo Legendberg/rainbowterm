@@ -110,10 +110,30 @@ fn strip_p10k_rprompt_text(text: &str) -> String {
 
 fn get_linux_server_regex() -> &'static Regex {
     LINUX_SERVER_REGEX.get_or_init(|| {
-        // Match Linux/Unix server indicators in SSH banners
-        // These indicate an interactive shell session that benefits from ANSI preservation
-        Regex::new(r"(?i)Linux\s+\w+\s+\d|Debian|Ubuntu|CentOS|Red\s*Hat|RHEL|Fedora|Arch\s+Linux|GNU/Linux|FreeBSD|OpenBSD|NetBSD|Darwin|macOS")
-            .expect("Linux server regex pattern should be valid")
+        // Signals that we're talking to an interactive shell rather than a network
+        // device. When this matches we leave ANSI codes alone so `clear`, readline
+        // backspace redraw (\x1b[K), `ls --color`, and shell prompt colors still work.
+        //
+        // Two kinds of signal:
+        //   1. OS name in MOTD/banner (Debian, Ubuntu, RHEL, ...). Reliable when
+        //      present, but many corporate jumpboxes scrub these out of the banner.
+        //   2. The prompt itself. A `user@host:path$` or `user@host:path#` prompt
+        //      with a path segment is the default PS1 on every Linux distro and
+        //      macOS. Network device prompts do NOT include a path component after
+        //      a colon (Junos = `user@host>`, Cisco = `hostname#`, Versa = mode
+        //      prefix), so requiring the `:path` segment avoids false positives.
+        Regex::new(
+            r"(?ix)
+                # OS name in banner/MOTD
+                Linux\s+\w+\s+\d
+                | Debian | Ubuntu | CentOS | Red\s*Hat | RHEL | Fedora
+                | Arch\s+Linux | GNU/Linux
+                | FreeBSD | OpenBSD | NetBSD | Darwin | macOS
+                # user@host:path$ or :path# — default bash/zsh PS1
+                | [\w\-.]+ @ [\w\-.]+ : [~/] [\w/\-.\ ]* [\$\#]
+            "
+        )
+        .expect("Linux server regex pattern should be valid")
     })
 }
 
@@ -1572,5 +1592,35 @@ mod tests {
         let split = BytesRegex::new(r"(\r?\n)").unwrap();
         let buffer = b"incomplete".to_vec();
         assert_eq!(last_complete_line_end(&buffer, &split), 0);
+    }
+
+    #[test]
+    fn detects_linux_via_os_banner() {
+        assert!(is_linux_server("Linux jumpbox 5.14.0"));
+        assert!(is_linux_server("Welcome to Ubuntu 22.04 LTS"));
+        assert!(is_linux_server("CentOS Stream 9"));
+        assert!(is_linux_server("Red Hat Enterprise Linux 8.10"));
+    }
+
+    #[test]
+    fn detects_linux_via_bash_prompt() {
+        // The jumpbox-bastion scenario: scrubbed legal banner, no OS name,
+        // but a standard bash PS1 appears before the first command.
+        assert!(is_linux_server("x1oz@0319p07774js01:~$ "));
+        assert!(is_linux_server("root@webserver:/var/log# "));
+        assert!(is_linux_server("user@host:/home/user/projects$ "));
+        assert!(is_linux_server("admin@box:~/some dir$ ")); // paths with spaces
+    }
+
+    #[test]
+    fn does_not_detect_network_device_prompts_as_linux() {
+        // Junos: user@host> (no path, angle bracket)
+        assert!(!is_linux_server("x1oz@js004-1c> "));
+        assert!(!is_linux_server("admin@mx480> "));
+        // Cisco: hostname# (no user@)
+        assert!(!is_linux_server("Router#"));
+        assert!(!is_linux_server("switch-core>"));
+        // Versa: operational mode prompt
+        assert!(!is_linux_server("admin@Branch-01-cli> "));
     }
 }
