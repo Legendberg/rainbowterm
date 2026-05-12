@@ -389,9 +389,19 @@ fn run() -> anyhow::Result<()> {
         check_config_version_warning(&config_path, DEFAULT_CONFIG);
     }
 
-    // Load config from file or use embedded default
+    // Load config from file or use embedded default.
+    // An explicit -c path that doesn't exist is a hard error — silently using
+    // the embedded default would hide typos and wrong-working-directory mistakes.
+    // The implicit default path is allowed to be missing: first_run above just
+    // wrote it, or --config-hash / earlier branches handled it.
     let config = if config_path.exists() {
         Config::from_file(&config_path)?
+    } else if cli.config.is_some() {
+        anyhow::bail!(
+            "config file not found: {}\n\
+             Check the path, or omit -c to use the default config.",
+            config_path.display()
+        );
     } else {
         Config::parse(DEFAULT_CONFIG)?
     };
