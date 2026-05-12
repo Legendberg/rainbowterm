@@ -130,7 +130,6 @@ Multi-line state machine tracks context across output:
 - **Priority system**: Fine-grained control over pattern precedence
 - **Profile inheritance**: Extend base patterns with vendor-specific rules
 - **TOML configuration**: Human-readable, version-controllable config
-- **ChromaTerm converter**: Migrate existing YAML configs to TOML
 
 ## 🚀 Installation
 
@@ -477,7 +476,7 @@ src/
 ├── config.rs    # TOML parsing, profile management, shared types
 ├── matching.rs  # Pattern compilation and application
 ├── context.rs   # State machine for context-aware rules
-└── convert.rs   # ChromaTerm YAML converter (optional feature)
+└── versions.rs  # Config version tracking and hash validation
 ```
 
 ### Performance
@@ -504,7 +503,11 @@ Higher priority = applied first:
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests on [GitHub](https://github.com/Legendberg/rainbowterm).
+Contributions are welcome! Please feel free to submit issues or pull requests on [GitHub](https://github.com/Legendberg/rainbowterm). See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, including the `config.toml` version-bump and `KNOWN_HASHES` registration steps.
+
+## 🔒 Security
+
+See [SECURITY.md](SECURITY.md) for the trust model, ReDoS posture, and a complete list of filesystem side effects (`rt --update-config`, `rt init --install`, `rt completions --install`, first-run config creation).
 
 ## 🗺️ Roadmap
 

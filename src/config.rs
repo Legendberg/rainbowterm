@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -208,16 +209,20 @@ pub struct StateColorMapping {
 impl Config {
     /// Load configuration from TOML file
     pub fn from_file(path: &std::path::Path) -> anyhow::Result<Self> {
-        let content = std::fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&content)?;
-        config.validate()?;
+        let content = std::fs::read_to_string(path)
+            .with_context(|| format!("reading config file {}", path.display()))?;
+        let config: Config = toml::from_str(&content)
+            .with_context(|| format!("parsing config file {}", path.display()))?;
+        config
+            .validate()
+            .with_context(|| format!("validating config file {}", path.display()))?;
         Ok(config)
     }
 
     /// Load configuration from string
     pub fn parse(content: &str) -> anyhow::Result<Self> {
-        let config: Config = toml::from_str(content)?;
-        config.validate()?;
+        let config: Config = toml::from_str(content).context("parsing embedded config")?;
+        config.validate().context("validating embedded config")?;
         Ok(config)
     }
 
@@ -572,8 +577,10 @@ mod tests {
         "##;
         let result = Config::parse(toml);
         assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
-        assert!(err.contains("nonexistent"));
+        // Use alternate formatting to walk the error chain; Config::parse now wraps
+        // validation errors with a top-level "validating embedded config" context.
+        let err = format!("{:#}", result.unwrap_err());
+        assert!(err.contains("nonexistent"), "expected 'nonexistent' in error: {}", err);
     }
 
     #[test]

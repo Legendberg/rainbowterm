@@ -1,5 +1,6 @@
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
+use anyhow::Context;
 use regex::Regex;
 use regex::bytes::Regex as BytesRegex;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -13,8 +14,6 @@ mod config;
 mod context;
 mod matching;
 mod versions;
-#[cfg(feature = "convert")]
-mod convert;
 
 use config::{parse_hex_color, ColoredRange, Config};
 use context::ContextEngine;
@@ -288,16 +287,6 @@ enum Commands {
         install: bool,
     },
 
-    /// Convert ChromaTerm YAML to RainbowTerm TOML (DEPRECATED - requires 'convert' feature)
-    #[cfg(feature = "convert")]
-    Convert {
-        /// Input YAML file
-        input: PathBuf,
-
-        /// Output TOML file (optional, defaults to stdout)
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-    },
 }
 
 fn main() {
@@ -308,7 +297,10 @@ fn main() {
                 std::process::exit(0);
             }
         }
-        eprintln!("Error: {}", e);
+        // Use {:#} to print the full error chain (top context + underlying causes),
+        // separated by ': '. Without this, added .with_context() wrappers would hide
+        // the underlying diagnostic from the user.
+        eprintln!("Error: {:#}", e);
         std::process::exit(1);
     }
 }
@@ -324,19 +316,6 @@ fn run() -> anyhow::Result<()> {
             }
             Commands::Init { install } => {
                 return handle_init(*install);
-            }
-            #[cfg(feature = "convert")]
-            Commands::Convert { input, output } => {
-                let yaml_content = std::fs::read_to_string(input)?;
-                let toml_content = convert::convert_yaml_to_toml(&yaml_content)?;
-
-                if let Some(output_path) = output {
-                    std::fs::write(output_path, toml_content)?;
-                    println!("Converted {} to {}", input.display(), output_path.display());
-                } else {
-                    println!("{}", toml_content);
-                }
-                return Ok(());
             }
         }
     }
@@ -362,7 +341,8 @@ fn run() -> anyhow::Result<()> {
         println!("Embedded config hash: {}", embedded_hash);
 
         if config_path.exists() {
-            let user_config = std::fs::read_to_string(&config_path)?;
+            let user_config = std::fs::read_to_string(&config_path)
+                .with_context(|| format!("reading user config {}", config_path.display()))?;
             let user_version = versions::parse_config_version(&user_config)
                 .unwrap_or_else(|| "unknown".to_string());
             let user_hash = versions::hash_config(&user_config);
@@ -391,9 +371,11 @@ fn run() -> anyhow::Result<()> {
     let first_run = cli.config.is_none() && !config_path.exists();
     if first_run {
         if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent)?;
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("creating config directory {}", parent.display()))?;
         }
-        std::fs::write(&config_path, DEFAULT_CONFIG)?;
+        std::fs::write(&config_path, DEFAULT_CONFIG)
+            .with_context(|| format!("writing default config to {}", config_path.display()))?;
         eprintln!("Created default config at {}", config_path.display());
     }
 
@@ -805,7 +787,12 @@ fn process_complete_lines(
 // SHELL COMPLETIONS (rt completions)
 // =============================================================================
 
-/// Handle `rt completions` command - generate or install shell completions
+/// Handle `rt completions` command - generate or install shell completions.
+///
+/// WRITE: with `--install`, writes the completion script to a shell-specific
+/// location (e.g., `~/.zfunc/_rt`, `~/.local/share/bash-completion/completions/rt`).
+/// Without `--install`, prints the script to stdout. See SECURITY.md for the
+/// full list of filesystem side effects.
 fn handle_completions(shell: Shell, install: bool) -> anyhow::Result<()> {
     if !install {
         // Just print to stdout
@@ -905,7 +892,12 @@ fn handle_completions(shell: Shell, install: bool) -> anyhow::Result<()> {
 // SHELL INTEGRATION (rt init)
 // =============================================================================
 
-/// Handle `rt init` command - setup shell integration for automatic SSH colorization
+/// Handle `rt init` command - setup shell integration for automatic SSH colorization.
+///
+/// WRITE: with `--install`, appends a shell function to `~/.zshrc` or `~/.bashrc`
+/// (the user's rc file) after a yes/no prompt. Without `--install`, prints a
+/// preview of the change. This is the highest-impact write operation — it
+/// modifies the user's shell init. See SECURITY.md.
 fn handle_init(install: bool) -> anyhow::Result<()> {
     // Detect shell from $SHELL environment variable
     let shell_path = std::env::var("SHELL").unwrap_or_default();
@@ -1093,33 +1085,44 @@ fn check_shell_integration_hint(config_path: &Path) {
 // CONFIG UPDATE AND VERSION MANAGEMENT
 // =============================================================================
 
-/// Handle --update-config with smart merge support
+/// Handle `rt --update-config` with smart merge support.
+///
+/// WRITE: overwrites the user's config at `config_path`. Safe when the user
+/// config matches a known stock hash (auto-update); prompts for
+/// merge/replace/keep otherwise. Always saves a `config.toml.user` backup
+/// before destructive writes. With `--force`, skips the prompt. See
+/// SECURITY.md for the full list of filesystem side effects.
 fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) -> anyhow::Result<()> {
     let embedded_version = versions::parse_config_version(embedded_config)
         .unwrap_or_else(|| "unknown".to_string());
 
     // Ensure parent directory exists
     if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating config directory {}", parent.display()))?;
     }
 
     // Check if user config exists
     if !config_path.exists() {
-        std::fs::write(config_path, embedded_config)?;
+        std::fs::write(config_path, embedded_config)
+            .with_context(|| format!("writing new config to {}", config_path.display()))?;
         eprintln!("Created config v{} at {}", embedded_version, config_path.display());
         return Ok(());
     }
 
     // Read user's current config
-    let user_config = std::fs::read_to_string(config_path)?;
+    let user_config = std::fs::read_to_string(config_path)
+        .with_context(|| format!("reading user config {}", config_path.display()))?;
     let user_version = versions::parse_config_version(&user_config)
         .unwrap_or_else(|| "unknown".to_string());
 
     // Handle --force: backup and replace without prompting
     if force {
         let backup_path = config_path.with_extension("toml.user");
-        std::fs::copy(config_path, &backup_path)?;
-        std::fs::write(config_path, embedded_config)?;
+        std::fs::copy(config_path, &backup_path)
+            .with_context(|| format!("backing up config to {}", backup_path.display()))?;
+        std::fs::write(config_path, embedded_config)
+            .with_context(|| format!("writing config to {}", config_path.display()))?;
         eprintln!("Forced update to v{}. Backup saved: {}", embedded_version, backup_path.display());
         clear_version_warning(config_path);
         return Ok(());
@@ -1134,7 +1137,8 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
         }
 
         // Safe to auto-update (stock -> stock)
-        std::fs::write(config_path, embedded_config)?;
+        std::fs::write(config_path, embedded_config)
+            .with_context(|| format!("writing config to {}", config_path.display()))?;
         eprintln!("Updated config from v{} to v{}", matched_version, embedded_version);
         clear_version_warning(config_path);
         return Ok(());
@@ -1147,7 +1151,8 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
 
     // Create backup
     let backup_path = config_path.with_extension("toml.user");
-    std::fs::copy(config_path, &backup_path)?;
+    std::fs::copy(config_path, &backup_path)
+        .with_context(|| format!("backing up config to {}", backup_path.display()))?;
     eprintln!("  Backup saved: {}", backup_path.display());
 
     // Check if we're in interactive mode
@@ -1179,7 +1184,8 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
             io::stdin().lock().read_line(&mut input)?;
             if input.trim().to_lowercase() == "y" {
                 let merged = merge_configs(&user_config, embedded_config)?;
-                std::fs::write(config_path, &merged)?;
+                std::fs::write(config_path, &merged)
+                    .with_context(|| format!("writing merged config to {}", config_path.display()))?;
                 eprintln!("Merged config saved. Your custom changes preserved, new patterns added.");
                 clear_version_warning(config_path);
             } else {
@@ -1193,7 +1199,8 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
             input.clear();
             io::stdin().lock().read_line(&mut input)?;
             if input.trim().to_lowercase() == "y" {
-                std::fs::write(config_path, embedded_config)?;
+                std::fs::write(config_path, embedded_config)
+                    .with_context(|| format!("writing config to {}", config_path.display()))?;
                 eprintln!("Replaced with v{}. Your backup: {}", embedded_version, backup_path.display());
                 clear_version_warning(config_path);
             } else {

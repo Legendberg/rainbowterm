@@ -18,7 +18,6 @@ regex = "1.10"
 clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = { version = "0.9", optional = true }
 toml = "0.9"
 toml_edit = "0.22"
 termcolor = "1.4"
@@ -29,10 +28,6 @@ similar = "2.6"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
-
-[features]
-default = []
-convert = ["serde_yaml"]  # DEPRECATED: ChromaTerm YAML conversion (uses unmaintained serde_yaml)
 
 [[bin]]
 name = "rt"
