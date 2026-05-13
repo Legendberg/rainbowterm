@@ -23,6 +23,7 @@ pub static KNOWN_HASHES: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     m.insert("0.2.22", "9f2df232a06971aefb1876684ec31de578b9c7e7aae4a3076021f9cbdd0a19d1");
     m.insert("0.2.23", "47c63d8c537ed760b5604b195f6d76a144cbc4eeb9f8f68453cde88205f2d5fe");
     m.insert("0.2.24", "68cce0f342b4f1946405bcf9c8225629334c3e47ea62b0dfcd1fc274020d8e93");
+    m.insert("0.2.25", "06a5093c51bbc3a5612c0e45a49a8dcc632449430aee81360e1a557bd3285c13");
     m
 });
 

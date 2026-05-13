@@ -350,6 +350,15 @@ cat pre-colored.txt | rt --preserve-ansi
 rt --list-profiles
 ```
 
+### Interactive Linux/Unix shells
+
+rt detects interactive shell sessions (via OS name in the banner or a
+`user@host:path$` bash/zsh prompt) and switches to ANSI-preserve mode so
+`clear`, readline backspace redraw, and `ls --color` keep working. Detection
+is mid-stream and sticky — once rt sees a shell signal, it preserves ANSI for
+the rest of the session. Useful for corporate jumpboxes that scrub OS
+identifiers from the SSH banner, leaving only a PS1 to go on.
+
 ### Windows Note
 
 For interactive SSH sessions on Windows, use **Git Bash** (see [Windows installation](#windows) above). Non-interactive commands work in PowerShell:
@@ -420,8 +429,11 @@ head -3 ~/Library/Application\ Support/rainbowterm/config.toml  # macOS
 ```
 
 ```toml
-# Set default profile (used when auto-detection fails)
-default_profile = "juniper"
+# Set default profile (used when auto-detection fails).
+# Defaults to "base" so unknown input gets only universal patterns
+# (IPs, MACs, dates, status) rather than misapplying vendor-specific rules.
+# Change to "juniper" / "cisco" / "versa" if you want a vendor-specific fallback.
+default_profile = "base"
 
 # Customize hostname prefixes for your organization
 # These help auto-detection identify devices by hostname
@@ -519,15 +531,16 @@ See [SECURITY.md](SECURITY.md) for the trust model, ReDoS posture, and a complet
 - [x] Public release to crates.io (v0.1.0)
 - [x] v0.2.0 release with dual spectrum and screenshots
 - [x] v0.2.3 improved documentation for both platforms
-- [x] Unit test suite (15 tests for config and matching)
+- [x] Unit test suite (37 tests across config, matching, versions, UTF-8 handling, shell detection)
 - [x] Integration test suite (Juniper, Cisco profiles)
 - [x] Versa SD-WAN profile (v0.2.12)
 - [x] Automatic profile detection from content/banners
 - [x] User-configurable hostname prefixes
 - [x] Shell integration (`rt init`) for automatic SSH colorization
 - [x] Shell completions (`rt completions <shell>`)
+- [x] Performance benchmarks (`cargo bench`, criterion-based)
+- [x] Mid-stream Linux-shell detection for interactive SSH on jumpboxes (v0.2.25)
 - [ ] Complete Arista EOS profile implementation
-- [ ] Performance benchmarks
 - [ ] Additional vendor profiles (Palo Alto, F5, etc.)
 - [ ] PTY wrap mode for serial console access (see [Future Development](#-future-development))
 

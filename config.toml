@@ -1,6 +1,6 @@
 # RainbowTerm Configuration
 # Context-aware terminal colorizer
-# Config version: 0.2.24 (2026-05-11)
+# Config version: 0.2.25 (2026-05-13)
 
 # Fallback profile when auto-detection fails, or when --no-auto-detect is used
 # without --profile. Defaults to "base" so unknown input gets only universal
