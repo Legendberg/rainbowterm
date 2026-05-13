@@ -509,8 +509,11 @@ fn run_with_auto_detect(
     // Detect profile from content
     let detected_profile = config.detect_profile(&initial_text);
 
-    // Auto-detect Linux/Unix servers and preserve ANSI for interactive shells
-    let effective_strip_ansi = if strip_ansi && is_linux_server(&initial_text) {
+    // Auto-detect Linux/Unix servers and preserve ANSI for interactive shells.
+    // This only runs on the initial buffer (<=4KB in the first 100ms); process_stdin
+    // re-checks on every subsequent chunk so a late-arriving prompt still flips us.
+    let initial_looks_linux = is_linux_server(&initial_text);
+    let effective_strip_ansi = if strip_ansi && initial_looks_linux {
         if !quiet {
             eprintln!("Detected Linux/Unix server, preserving ANSI codes");
         }
@@ -528,7 +531,10 @@ fn run_with_auto_detect(
         // Fall back to default profile.
         // The warning is always printed (even with --quiet) because silent wrong
         // coloring is worse than no coloring — users should know vendor-specific
-        // patterns aren't being applied.
+        // patterns aren't being applied. Suppressed when the initial buffer
+        // already looks like a shell (rt is a pass-through on those) and when
+        // --quiet is set for everything else, since mid-stream Linux detection
+        // can still flip us.
         let default_name = config.default_profile.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "Could not auto-detect profile and no default_profile set in config.\n\
@@ -538,12 +544,14 @@ fn run_with_auto_detect(
         let prof = config.get_profile(default_name).ok_or_else(|| {
             anyhow::anyhow!("Default profile '{}' not found", default_name)
         })?;
-        eprintln!(
-            "rt: warning: auto-detect found no match — falling back to '{}' profile. \
-             Vendor-specific patterns will not apply. \
-             Use --profile <name> to select explicitly.",
-            default_name
-        );
+        if !initial_looks_linux {
+            eprintln!(
+                "rt: warning: auto-detect found no match — falling back to '{}' profile. \
+                 Vendor-specific patterns will not apply. \
+                 Use --profile <name> to select explicitly.",
+                default_name
+            );
+        }
         (default_name.clone(), prof)
     };
 
@@ -714,9 +722,16 @@ fn process_stdin(
 
     let mut stdin_handle = stdin.lock();
 
+    // Mutable because we may flip to ANSI-preserve mid-stream the first time we
+    // see a Linux/shell signal. Corporate jumpboxes scrub the OS name from the
+    // banner, so detection often can't succeed until the shell prompt shows up
+    // — which can be later than the 4KB / 100ms pre-read window in the caller.
+    let mut strip_ansi = strip_ansi;
+
     // Process initial data if provided (from auto-detect)
     if let Some(initial) = initial_data {
         buffer.extend(initial);
+        maybe_flip_to_linux_mode(&buffer, &mut strip_ansi);
         let processed_bytes = process_complete_lines(
             &buffer,
             &split_regex,
@@ -740,6 +755,7 @@ fn process_stdin(
             Ok(0) => {
                 // EOF - process remaining data (even incomplete lines)
                 if !buffer.is_empty() {
+                    maybe_flip_to_linux_mode(&buffer, &mut strip_ansi);
                     let text = String::from_utf8_lossy(&buffer);
                     process_and_output_chunk(&text, "", stdout, patterns, context_engine, config, strip_ansi)?;
                 }
@@ -750,6 +766,7 @@ fn process_stdin(
                 // No data available right now (non-blocking mode)
                 // If we have buffered incomplete data, it's likely a prompt - output it
                 if !buffer.is_empty() {
+                    maybe_flip_to_linux_mode(&buffer, &mut strip_ansi);
                     let text = String::from_utf8_lossy(&buffer);
                     process_and_output_chunk(&text, "", stdout, patterns, context_engine, config, strip_ansi)?;
                     buffer.clear();
@@ -764,6 +781,8 @@ fn process_stdin(
 
         buffer.extend_from_slice(&chunk[..bytes_read]);
         std::thread::sleep(std::time::Duration::from_millis(BATCH_DELAY_MS));
+
+        maybe_flip_to_linux_mode(&buffer, &mut strip_ansi);
 
         let processed_bytes = process_complete_lines(
             &buffer,
@@ -781,6 +800,22 @@ fn process_stdin(
     }
 
     Ok(())
+}
+
+/// If we're still stripping ANSI but this buffer contains a Linux/shell signal,
+/// flip to preserve mode so readline backspace (`\x1b[K`), `clear`, and
+/// `ls --color` keep working for the rest of the session.
+///
+/// The decision is sticky: once we flip to preserve, we never flip back.
+fn maybe_flip_to_linux_mode(buffer: &[u8], strip_ansi: &mut bool) {
+    if !*strip_ansi {
+        return;
+    }
+    let text = String::from_utf8_lossy(buffer);
+    if is_linux_server(&text) {
+        *strip_ansi = false;
+        eprintln!("rt: detected shell session, preserving ANSI codes for the rest of this session");
+    }
 }
 
 /// Process every complete line in `buffer` (split on `\r?\n`) and return the
