@@ -259,12 +259,11 @@ impl Config {
                 let full_regex = format!("{}{}", flags, pattern.regex);
                 if let Err(e) = regex::Regex::new(&full_regex) {
                     anyhow::bail!(
-                        "Profile '{}': invalid regex in pattern '{}': {}\n\
+                        "Profile '{}': invalid regex in pattern '{}'\n\
                          Pattern: {}\n\
                          Error:   {}",
                         profile_name,
                         pattern.description,
-                        pattern.regex,
                         pattern.regex,
                         e
                     );
@@ -274,12 +273,11 @@ impl Config {
             for context in &profile.contexts {
                 if let Err(e) = regex::Regex::new(&context.start) {
                     anyhow::bail!(
-                        "Profile '{}': invalid regex in context '{}' start pattern: {}\n\
+                        "Profile '{}': invalid regex in context '{}' start\n\
                          Pattern: {}\n\
                          Error:   {}",
                         profile_name,
                         context.name,
-                        context.start,
                         context.start,
                         e
                     );
@@ -287,12 +285,11 @@ impl Config {
                 for tracker in &context.track {
                     if let Err(e) = regex::Regex::new(&tracker.pattern) {
                         anyhow::bail!(
-                            "Profile '{}': invalid regex in tracker '{}' pattern: {}\n\
+                            "Profile '{}': invalid regex in tracker '{}'\n\
                              Pattern: {}\n\
                              Error:   {}",
                             profile_name,
                             tracker.name,
-                            tracker.pattern,
                             tracker.pattern,
                             e
                         );
@@ -301,11 +298,10 @@ impl Config {
                 for rule in &context.rules {
                     if let Err(e) = regex::Regex::new(&rule.pattern) {
                         anyhow::bail!(
-                            "Profile '{}': invalid regex in context rule pattern: {}\n\
+                            "Profile '{}': invalid regex in context rule\n\
                              Pattern: {}\n\
                              Error:   {}",
                             profile_name,
-                            rule.pattern,
                             rule.pattern,
                             e
                         );

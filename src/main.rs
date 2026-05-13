@@ -529,12 +529,9 @@ fn run_with_auto_detect(
         (name, prof)
     } else {
         // Fall back to default profile.
-        // The warning is always printed (even with --quiet) because silent wrong
-        // coloring is worse than no coloring — users should know vendor-specific
-        // patterns aren't being applied. Suppressed when the initial buffer
-        // already looks like a shell (rt is a pass-through on those) and when
-        // --quiet is set for everything else, since mid-stream Linux detection
-        // can still flip us.
+        // Silent wrong coloring is worse than no coloring, so a warning tells
+        // the user vendor-specific patterns aren't applying. See below for
+        // the two cases where it's suppressed.
         let default_name = config.default_profile.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "Could not auto-detect profile and no default_profile set in config.\n\
@@ -544,7 +541,11 @@ fn run_with_auto_detect(
         let prof = config.get_profile(default_name).ok_or_else(|| {
             anyhow::anyhow!("Default profile '{}' not found", default_name)
         })?;
-        if !initial_looks_linux {
+        // Suppressed when the initial buffer already looks like a shell (rt is
+        // a pass-through on those and mid-stream Linux detection can still
+        // flip us), or when --quiet is explicitly set. A user who asks for
+        // quiet accepts the trade-off that silent coloring is silent.
+        if !initial_looks_linux && !quiet {
             eprintln!(
                 "rt: warning: auto-detect found no match — falling back to '{}' profile. \
                  Vendor-specific patterns will not apply. \
@@ -702,7 +703,7 @@ fn process_stdin(
     // Using a bytes regex so byte offsets match the raw buffer exactly — critical
     // because `String::from_utf8_lossy` can inflate byte lengths (one invalid byte
     // becomes three bytes of U+FFFD), which previously corrupted buffer slicing.
-    let split_regex = BytesRegex::new(r"(\r?\n)")?;
+    let split_regex = BytesRegex::new(r"\r?\n")?;
     let stdin = io::stdin();
     let mut buffer = Vec::new();
 
@@ -1598,7 +1599,7 @@ mod tests {
     /// advances exactly past the newline; the buggy one would skip too far.
     #[test]
     fn process_complete_lines_handles_invalid_utf8() {
-        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let split = BytesRegex::new(r"\r?\n").unwrap();
         // "bad\xFF\n" (5 bytes) + "next\n" (5 bytes) = 10 bytes total
         let buffer: Vec<u8> = b"bad\xFF\nnext\n".to_vec();
         assert_eq!(last_complete_line_end(&buffer, &split), 10);
@@ -1610,21 +1611,21 @@ mod tests {
 
     #[test]
     fn process_complete_lines_handles_all_ascii() {
-        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let split = BytesRegex::new(r"\r?\n").unwrap();
         let buffer = b"one\ntwo\nthree\n".to_vec();
         assert_eq!(last_complete_line_end(&buffer, &split), 14);
     }
 
     #[test]
     fn process_complete_lines_handles_crlf() {
-        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let split = BytesRegex::new(r"\r?\n").unwrap();
         let buffer = b"one\r\ntwo\r\n".to_vec();
         assert_eq!(last_complete_line_end(&buffer, &split), 10);
     }
 
     #[test]
     fn process_complete_lines_returns_zero_when_no_complete_line() {
-        let split = BytesRegex::new(r"(\r?\n)").unwrap();
+        let split = BytesRegex::new(r"\r?\n").unwrap();
         let buffer = b"incomplete".to_vec();
         assert_eq!(last_complete_line_end(&buffer, &split), 0);
     }

@@ -122,6 +122,36 @@ mod tests {
         assert_eq!(parse_config_version(content), Some("0.2.12".to_string()));
     }
 
+    /// Guardrail: config.toml's header version must be a known stock hash,
+    /// and the embedded config's hash must match the entry registered for
+    /// that version. Catches the class of bug where a release bumps
+    /// Cargo.toml or config.toml but forgets the KNOWN_HASHES update.
+    #[test]
+    fn embedded_config_matches_registered_hash() {
+        const EMBEDDED: &str = include_str!("../config.toml");
+        let version = parse_config_version(EMBEDDED).expect(
+            "embedded config.toml must have a '# Config version: X.Y.Z' header line",
+        );
+        let actual_hash = hash_config(EMBEDDED);
+        let registered_hash = KNOWN_HASHES.get(version.as_str()).unwrap_or_else(|| {
+            panic!(
+                "config.toml header says v{} but KNOWN_HASHES has no entry for it. \
+                 Run `cargo install --path . && rt --config-hash` and add the hash \
+                 to src/versions.rs::KNOWN_HASHES. See CONTRIBUTING.md.",
+                version
+            )
+        });
+        assert_eq!(
+            actual_hash, *registered_hash,
+            "embedded config.toml hash doesn't match KNOWN_HASHES['{}'].\n\
+             Expected (registered): {}\n\
+             Actual (computed):     {}\n\
+             Either (a) a config.toml change was made without re-registering the hash, \
+             or (b) the registered hash is stale. See CONTRIBUTING.md.",
+            version, registered_hash, actual_hash
+        );
+    }
+
     #[test]
     fn test_parse_config_date() {
         let content = "# Config version: 0.2.12 (2025-12-23)\n";
