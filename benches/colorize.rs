@@ -123,17 +123,13 @@ fn bench_throughput_scaling(c: &mut Criterion) {
             .join("\n");
 
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(
-            BenchmarkId::new("lines", multiplier),
-            &input,
-            |b, input| {
-                b.iter(|| {
-                    for line in input.lines() {
-                        let _ = apply_patterns(black_box(line), black_box(&compiled));
-                    }
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("lines", multiplier), &input, |b, input| {
+            b.iter(|| {
+                for line in input.lines() {
+                    let _ = apply_patterns(black_box(line), black_box(&compiled));
+                }
+            });
+        });
     }
 
     group.finish();

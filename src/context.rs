@@ -66,8 +66,12 @@ impl ContextEngine {
 
     /// Compile and add a context from config
     pub fn add_context(&mut self, context: &Context) -> Result<()> {
-        let start_regex = Regex::new(&context.start)
-            .with_context(|| format!("Failed to compile start pattern for context '{}'", context.name))?;
+        let start_regex = Regex::new(&context.start).with_context(|| {
+            format!(
+                "Failed to compile start pattern for context '{}'",
+                context.name
+            )
+        })?;
 
         let mut trackers = Vec::new();
         for tracker in &context.track {
@@ -82,8 +86,8 @@ impl ContextEngine {
 
         let mut rules = Vec::new();
         for rule in &context.rules {
-            let regex = Regex::new(&rule.pattern)
-                .with_context(|| "Failed to compile rule pattern")?;
+            let regex =
+                Regex::new(&rule.pattern).with_context(|| "Failed to compile rule pattern")?;
 
             let mut color_mappings = HashMap::new();
             for mapping in &rule.colors {
@@ -110,7 +114,8 @@ impl ContextEngine {
         };
 
         self.contexts.push(compiled);
-        self.states.insert(context.name.clone(), ContextState::new());
+        self.states
+            .insert(context.name.clone(), ContextState::new());
 
         Ok(())
     }
@@ -183,7 +188,11 @@ impl ContextEngine {
                         if cap.len() > 1 {
                             for i in 1..cap.len() {
                                 if let Some(m) = cap.get(i) {
-                                    colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
+                                    colored_parts.push(ColoredRange::new(
+                                        m.start(),
+                                        m.end(),
+                                        color.clone(),
+                                    ));
                                 }
                             }
                         } else if let Some(m) = cap.get(0) {

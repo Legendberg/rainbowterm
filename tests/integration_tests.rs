@@ -10,11 +10,10 @@
 /// - tests/networking/juniper/* -> juniper profile
 /// - tests/networking/cisco/* -> cisco profile
 /// - tests/networking/arista/* -> arista profile
-
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::io::Write;
 use std::thread;
 
 /// Test data structure
@@ -87,8 +86,8 @@ fn discover_test_cases() -> Vec<TestCase> {
 
 /// Run rt with a test file and return the colored output
 fn run_rt_colorizer(profile: &str, test_file: &PathBuf) -> Result<Vec<u8>, String> {
-    let input = fs::read_to_string(test_file)
-        .map_err(|e| format!("Failed to read test file: {}", e))?;
+    let input =
+        fs::read_to_string(test_file).map_err(|e| format!("Failed to read test file: {}", e))?;
 
     let mut child = Command::new("rt")
         .arg("--profile")

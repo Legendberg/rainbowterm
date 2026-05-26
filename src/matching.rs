@@ -73,7 +73,11 @@ pub fn apply_patterns(data: &str, patterns: &[CompiledPattern]) -> Vec<ColoredRa
                         // Color capture groups
                         for i in 1..cap.len() {
                             if let Some(m) = cap.get(i) {
-                                colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
+                                colored_parts.push(ColoredRange::new(
+                                    m.start(),
+                                    m.end(),
+                                    color.clone(),
+                                ));
                             }
                         }
                     } else if let Some(m) = cap.get(0) {
@@ -85,7 +89,11 @@ pub fn apply_patterns(data: &str, patterns: &[CompiledPattern]) -> Vec<ColoredRa
                     for i in 1..cap.len() {
                         if let Some(m) = cap.get(i) {
                             if let Some(color) = group_colors.get(&(i as u32)) {
-                                colored_parts.push(ColoredRange::new(m.start(), m.end(), color.clone()));
+                                colored_parts.push(ColoredRange::new(
+                                    m.start(),
+                                    m.end(),
+                                    color.clone(),
+                                ));
                             }
                         }
                     }
@@ -219,7 +227,9 @@ mod tests {
         ];
 
         for (input, expected_label) in test_cases {
-            let caps = regex.captures(input).expect(&format!("Should match: {}", input));
+            let caps = regex
+                .captures(input)
+                .expect(&format!("Should match: {}", input));
             assert_eq!(
                 caps.get(1).unwrap().as_str(),
                 expected_label,
@@ -316,7 +326,9 @@ mod tests {
         ];
 
         for (input, expected_group1) in test_cases {
-            let caps = regex.captures(input).expect(&format!("Should match: {}", input));
+            let caps = regex
+                .captures(input)
+                .expect(&format!("Should match: {}", input));
             let actual = caps.get(1).unwrap().as_str();
             assert_eq!(
                 actual, expected_group1,
@@ -327,7 +339,8 @@ mod tests {
 
         // Test comma-separated line (real-world case)
         let line = "BPDU Error: None, Loop Detect PDU Error: None, Ethernet-Switching Error: None";
-        let matches: Vec<_> = regex.captures_iter(line)
+        let matches: Vec<_> = regex
+            .captures_iter(line)
             .map(|c| c.get(1).unwrap().as_str().to_string())
             .collect();
 
@@ -349,23 +362,33 @@ mod tests {
         let line = "BPDU Error: None, Loop Detect PDU Error: None, Ethernet-Switching Error: None";
 
         // Find the "Error: None (healthy)" pattern
-        let error_none_pattern = patterns.iter().find(|(regex, _, priority, _)| {
-            *priority == 205 && regex.as_str().contains("Error")
-        });
+        let error_none_pattern = patterns
+            .iter()
+            .find(|(regex, _, priority, _)| *priority == 205 && regex.as_str().contains("Error"));
 
-        assert!(error_none_pattern.is_some(), "Should find Error: None pattern with priority 205");
+        assert!(
+            error_none_pattern.is_some(),
+            "Should find Error: None pattern with priority 205"
+        );
 
         let (regex, _, priority, _) = error_none_pattern.unwrap();
         println!("Found pattern at priority {}: {}", priority, regex.as_str());
 
         // Test that the regex matches correctly
         let matches: Vec<_> = regex.captures_iter(line).collect();
-        assert_eq!(matches.len(), 3, "Should find 3 matches for Error: None pattern");
+        assert_eq!(
+            matches.len(),
+            3,
+            "Should find 3 matches for Error: None pattern"
+        );
 
         // Check second match is "Loop Detect PDU Error"
         let group1 = matches[1].get(1).unwrap().as_str();
-        assert_eq!(group1, "Loop Detect PDU Error",
-            "Second match group 1 should be 'Loop Detect PDU Error', got '{}'", group1);
+        assert_eq!(
+            group1, "Loop Detect PDU Error",
+            "Second match group 1 should be 'Loop Detect PDU Error', got '{}'",
+            group1
+        );
     }
 
     #[test]
@@ -385,25 +408,35 @@ mod tests {
         // Find all ranges that touch "Loop Detect PDU Error"
         // "Loop Detect PDU Error" is at positions 18-39 in the line
         let loop_detect_start = line.find("Loop").unwrap();
-        let loop_detect_end = line.find("Loop Detect PDU Error").unwrap() + "Loop Detect PDU Error".len();
+        let loop_detect_end =
+            line.find("Loop Detect PDU Error").unwrap() + "Loop Detect PDU Error".len();
 
         println!("Line: {}", line);
-        println!("Loop Detect PDU Error at {}-{}", loop_detect_start, loop_detect_end);
+        println!(
+            "Loop Detect PDU Error at {}-{}",
+            loop_detect_start, loop_detect_end
+        );
         println!("\nAll colored ranges ({} total):", ranges.len());
 
         for range in &ranges {
             let text = &line[range.start..range.end];
-            println!("  {}-{}: '{}' [{}]", range.start, range.end, text, range.color);
+            println!(
+                "  {}-{}: '{}' [{}]",
+                range.start, range.end, text, range.color
+            );
         }
 
         // Find the range for "Loop Detect PDU Error"
-        let loop_detect_range = ranges.iter().find(|r| {
-            r.start == loop_detect_start && r.end == loop_detect_end
-        });
+        let loop_detect_range = ranges
+            .iter()
+            .find(|r| r.start == loop_detect_start && r.end == loop_detect_end);
 
-        assert!(loop_detect_range.is_some(),
+        assert!(
+            loop_detect_range.is_some(),
             "Should find a colored range for 'Loop Detect PDU Error' at {}-{}",
-            loop_detect_start, loop_detect_end);
+            loop_detect_start,
+            loop_detect_end
+        );
 
         // Now test with overlap removal (same logic as main.rs)
         let mut sorted_ranges = ranges;
@@ -413,8 +446,8 @@ mod tests {
         let mut final_ranges = Vec::new();
         for range in sorted_ranges {
             let overlaps = final_ranges.iter().any(|r: &ColoredRange| {
-                (range.start >= r.start && range.start < r.end) ||
-                (range.end > r.start && range.end <= r.end)
+                (range.start >= r.start && range.start < r.end)
+                    || (range.end > r.start && range.end <= r.end)
             });
             if !overlaps {
                 final_ranges.push(range);
@@ -424,17 +457,23 @@ mod tests {
         println!("\nAfter overlap removal ({} ranges):", final_ranges.len());
         for range in &final_ranges {
             let text = &line[range.start..range.end];
-            println!("  {}-{}: '{}' [{}]", range.start, range.end, text, range.color);
+            println!(
+                "  {}-{}: '{}' [{}]",
+                range.start, range.end, text, range.color
+            );
         }
 
         // Verify "Loop Detect PDU Error" survives overlap removal
-        let final_loop_detect = final_ranges.iter().find(|r| {
-            r.start == loop_detect_start && r.end == loop_detect_end
-        });
+        let final_loop_detect = final_ranges
+            .iter()
+            .find(|r| r.start == loop_detect_start && r.end == loop_detect_end);
 
-        assert!(final_loop_detect.is_some(),
+        assert!(
+            final_loop_detect.is_some(),
             "Should have 'Loop Detect PDU Error' range after overlap removal at {}-{}",
-            loop_detect_start, loop_detect_end);
+            loop_detect_start,
+            loop_detect_end
+        );
     }
 
     #[test]
@@ -473,10 +512,15 @@ mod tests {
         let config = Config::from_file(Path::new("config.toml")).unwrap();
         let profile = config.get_profile("juniper").unwrap();
 
-        println!("\nJuniper profile has {} patterns total", profile.patterns.len());
+        println!(
+            "\nJuniper profile has {} patterns total",
+            profile.patterns.len()
+        );
 
         // Find MAC stats second column patterns
-        let second_col: Vec<_> = profile.patterns.iter()
+        let second_col: Vec<_> = profile
+            .patterns
+            .iter()
             .filter(|p| p.description.contains("MAC stats second column"))
             .collect();
 
@@ -487,11 +531,23 @@ mod tests {
 
         // Print last 15 patterns to see where we stopped
         println!("\nLast 15 patterns:");
-        let start = if profile.patterns.len() > 15 { profile.patterns.len() - 15 } else { 0 };
+        let start = if profile.patterns.len() > 15 {
+            profile.patterns.len() - 15
+        } else {
+            0
+        };
         for (i, p) in profile.patterns.iter().skip(start).enumerate() {
-            println!("  {}. {} (pri={})", start + i + 1, p.description, p.priority);
+            println!(
+                "  {}. {} (pri={})",
+                start + i + 1,
+                p.description,
+                p.priority
+            );
         }
 
-        assert!(second_col.len() >= 5, "Should have at least 5 MAC stats second column patterns");
+        assert!(
+            second_col.len() >= 5,
+            "Should have at least 5 MAC stats second column patterns"
+        );
     }
 }
