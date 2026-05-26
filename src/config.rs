@@ -372,34 +372,54 @@ impl Config {
 
     /// Auto-detect profile from input content
     /// Returns the profile name and resolved profile if a match is found
-    pub fn detect_profile(&self, content: &str) -> Option<(String, Profile)> {
+    pub fn detect_profile(
+        &self,
+        content: &str,
+        hostname_hint: Option<&str>,
+    ) -> Option<(String, Profile)> {
         let mut best_match: Option<(String, Profile, i32)> = None;
         let debug = std::env::var("RT_DEBUG").is_ok();
 
         if debug {
             eprintln!("DEBUG: Auto-detect content ({} bytes):", content.len());
-            eprintln!("DEBUG: Content preview: {:?}", &content[..content.len().min(200)]);
+            eprintln!(
+                "DEBUG: Content preview: {:?}",
+                &content[..content.len().min(200)]
+            );
+            if let Some(h) = hostname_hint {
+                eprintln!("DEBUG: Hostname hint: {:?}", h);
+            }
         }
 
         for (profile_name, profile) in &self.profiles {
             let mut score = 0;
 
-            // Check hostname prefixes first (from [hostname_prefixes] section)
+            // Check hostname prefixes first (from [hostname_prefixes] section).
+            // Match against both the explicit hostname hint (e.g., from RT_HOSTNAME
+            // when ossh/opssh runs a non-interactive command and the stream contains
+            // no banner) and the content itself (interactive sessions where the
+            // prompt or banner echoes the hostname).
             if let Some(prefixes) = self.hostname_prefixes.get(profile_name) {
                 if !prefixes.is_empty() {
                     // Build regex pattern from prefixes: \b(prefix1|prefix2)[0-9]+[a-z0-9\-_]*
                     // Require at least one digit after prefix to avoid matching words like "SWITCH"
                     let prefix_pattern = format!(
                         r"(?i)\b({})[0-9]+[a-z0-9\-_]*",
-                        prefixes.iter()
+                        prefixes
+                            .iter()
                             .map(|p| regex::escape(p))
                             .collect::<Vec<_>>()
                             .join("|")
                     );
                     if let Ok(regex) = regex::Regex::new(&prefix_pattern) {
-                        if regex.is_match(content) {
+                        let hint_match = hostname_hint.is_some_and(|h| regex.is_match(h));
+                        let content_match = regex.is_match(content);
+                        if hint_match || content_match {
                             if debug {
-                                eprintln!("DEBUG: {} hostname prefix matched: {}", profile_name, prefix_pattern);
+                                eprintln!(
+                                    "DEBUG: {} hostname prefix matched (hint={}, content={}): {}",
+                                    profile_name, hint_match, content_match, prefix_pattern
+                                );
                             }
                             score += 50; // hostname match
                         }
@@ -420,7 +440,10 @@ impl Config {
                         // Check for CLI prompt patterns (high confidence)
                         if regex.is_match(content) {
                             if debug {
-                                eprintln!("DEBUG: {} prompt matched: {}", profile_name, rule.pattern);
+                                eprintln!(
+                                    "DEBUG: {} prompt matched: {}",
+                                    profile_name, rule.pattern
+                                );
                             }
                             score += 100;
                         }
@@ -429,7 +452,10 @@ impl Config {
                         // Hostname patterns in auto_detect (alternative to [hostname_prefixes])
                         if regex.is_match(content) {
                             if debug {
-                                eprintln!("DEBUG: {} hostname matched: {}", profile_name, rule.pattern);
+                                eprintln!(
+                                    "DEBUG: {} hostname matched: {}",
+                                    profile_name, rule.pattern
+                                );
                             }
                             score += 50;
                         }
@@ -438,7 +464,10 @@ impl Config {
                         // General content matching (lower confidence)
                         if regex.is_match(content) {
                             if debug {
-                                eprintln!("DEBUG: {} content matched: {}", profile_name, rule.pattern);
+                                eprintln!(
+                                    "DEBUG: {} content matched: {}",
+                                    profile_name, rule.pattern
+                                );
                             }
                             score += 25;
                         }
@@ -529,7 +558,9 @@ mod tests {
     #[test]
     fn test_config_resolve_color_palette() {
         let mut config = Config::default();
-        config.palette.insert("red".to_string(), "#ff0000".to_string());
+        config
+            .palette
+            .insert("red".to_string(), "#ff0000".to_string());
         assert_eq!(config.resolve_color("red"), "#ff0000");
     }
 
@@ -576,7 +607,11 @@ mod tests {
         // Use alternate formatting to walk the error chain; Config::parse now wraps
         // validation errors with a top-level "validating embedded config" context.
         let err = format!("{:#}", result.unwrap_err());
-        assert!(err.contains("nonexistent"), "expected 'nonexistent' in error: {}", err);
+        assert!(
+            err.contains("nonexistent"),
+            "expected 'nonexistent' in error: {}",
+            err
+        );
     }
 
     #[test]
@@ -592,21 +627,80 @@ mod tests {
     }
 
     #[test]
+    fn detect_profile_uses_hostname_hint_when_content_lacks_hostname() {
+        // Reproduces the bug seen in 0.2.25: `opssh js0391-mdf-2-b "show ddos-protection ..."`
+        // emits a stream that contains only the show output — no banner, no prompt.
+        // Without a hostname hint, [hostname_prefixes] cannot fire and detection
+        // falls back to base. With the hint plumbed through, the `js` prefix
+        // matches the hint and juniper is selected.
+        const CONFIG: &str = include_str!("../config.toml");
+        let config = Config::parse(CONFIG).unwrap();
+
+        let show_output_only = "Packet types: 247, Received traffic: 1234\n\
+                                Packet types: 248, Received traffic: 5678\n";
+
+        // Without a hint: no juniper match (no hostname appears in content)
+        let no_hint = config.detect_profile(show_output_only, None);
+        assert!(
+            no_hint.as_ref().map(|(n, _)| n.as_str()) != Some("juniper"),
+            "without hint, generic show output should not auto-detect as juniper, got {:?}",
+            no_hint.as_ref().map(|(n, _)| n)
+        );
+
+        // With a hint: hostname prefix `js` matches → juniper
+        let with_hint = config.detect_profile(show_output_only, Some("js0391-mdf-2-b"));
+        assert_eq!(
+            with_hint.as_ref().map(|(n, _)| n.as_str()),
+            Some("juniper"),
+            "with hostname hint 'js0391-mdf-2-b', should auto-detect as juniper"
+        );
+    }
+
+    #[test]
+    fn detect_profile_hint_is_optional_and_content_still_works() {
+        // Existing interactive-session path: hostname appears in the prompt or
+        // banner. Detection must keep working with no hint passed.
+        const CONFIG: &str = include_str!("../config.toml");
+        let config = Config::parse(CONFIG).unwrap();
+
+        // Junos-style prompt embedding the hostname
+        let interactive = "x1oz@js004-1c> show version\n";
+        let detected = config.detect_profile(interactive, None);
+        assert_eq!(
+            detected.as_ref().map(|(n, _)| n.as_str()),
+            Some("juniper"),
+            "interactive prompt with `js` hostname should match juniper without a hint"
+        );
+    }
+
+    #[test]
     fn test_parse_embedded_config() {
         const CONFIG: &str = include_str!("../config.toml");
         let config = Config::parse(CONFIG).unwrap();
 
         let juniper_raw = config.profiles.get("juniper").unwrap();
-        println!("Direct parse - juniper raw patterns: {}", juniper_raw.patterns.len());
+        println!(
+            "Direct parse - juniper raw patterns: {}",
+            juniper_raw.patterns.len()
+        );
 
-        let second_col: Vec<_> = juniper_raw.patterns.iter()
+        let second_col: Vec<_> = juniper_raw
+            .patterns
+            .iter()
             .filter(|p| p.description.contains("MAC stats second column"))
             .collect();
-        println!("Direct parse - MAC stats second column: {}", second_col.len());
+        println!(
+            "Direct parse - MAC stats second column: {}",
+            second_col.len()
+        );
         for p in &second_col {
             println!("  - {} (pri={})", p.description, p.priority);
         }
 
-        assert_eq!(second_col.len(), 5, "Should have 5 MAC stats second column patterns");
+        assert_eq!(
+            second_col.len(),
+            5,
+            "Should have 5 MAC stats second column patterns"
+        );
     }
 }

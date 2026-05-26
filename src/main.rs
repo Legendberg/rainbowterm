@@ -1,11 +1,11 @@
-use std::io::{self, BufRead, Write};
-use std::path::{Path, PathBuf};
 use anyhow::Context;
-use regex::Regex;
-use regex::bytes::Regex as BytesRegex;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
+use regex::bytes::Regex as BytesRegex;
+use regex::Regex;
+use std::io::{self, BufRead, Write};
+use std::path::{Path, PathBuf};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[cfg(unix)]
 extern crate libc;
@@ -131,7 +131,7 @@ fn get_linux_server_regex() -> &'static Regex {
                 | FreeBSD | OpenBSD | NetBSD | Darwin | macOS
                 # user@host:path$ or :path# — default bash/zsh PS1
                 | [\w\-.]+ @ [\w\-.]+ : [~/] [\w/\-.\ ]* [\$\#]
-            "
+            ",
         )
         .expect("Linux server regex pattern should be valid")
     })
@@ -283,6 +283,13 @@ struct Cli {
     #[arg(short, long)]
     quiet: bool,
 
+    /// Hostname hint for auto-detection (also via RT_HOSTNAME env var).
+    /// Useful when running non-interactive `ssh host "show ..."` whose output
+    /// contains no banner or prompt — without this hint, hostname-prefix rules
+    /// in [hostname_prefixes] cannot fire.
+    #[arg(long, value_name = "HOST")]
+    hostname: Option<String>,
+
     #[command(subcommand)]
     subcommand: Option<Commands>,
 }
@@ -306,7 +313,6 @@ enum Commands {
         #[arg(long)]
         install: bool,
     },
-
 }
 
 fn main() {
@@ -354,8 +360,8 @@ fn run() -> anyhow::Result<()> {
 
     // Handle --config-hash: show hash and version info
     if cli.config_hash {
-        let embedded_version = versions::parse_config_version(DEFAULT_CONFIG)
-            .unwrap_or_else(|| "unknown".to_string());
+        let embedded_version =
+            versions::parse_config_version(DEFAULT_CONFIG).unwrap_or_else(|| "unknown".to_string());
         let embedded_hash = versions::hash_config(DEFAULT_CONFIG);
         println!("Embedded config version: {}", embedded_version);
         println!("Embedded config hash: {}", embedded_hash);
@@ -366,8 +372,8 @@ fn run() -> anyhow::Result<()> {
             let user_version = versions::parse_config_version(&user_config)
                 .unwrap_or_else(|| "unknown".to_string());
             let user_hash = versions::hash_config(&user_config);
-            let user_date = versions::parse_config_date(&user_config)
-                .unwrap_or_else(|| "unknown".to_string());
+            let user_date =
+                versions::parse_config_date(&user_config).unwrap_or_else(|| "unknown".to_string());
             println!("User config version: {} ({})", user_version, user_date);
             println!("User config hash: {}", user_hash);
 
@@ -446,12 +452,34 @@ fn run() -> anyhow::Result<()> {
         if !cli.quiet {
             eprintln!("Using profile: {}", profile_name);
         }
-        return run_colorizer(&config, &profile, cli.no_color, cli.no_context, !cli.preserve_ansi, None);
+        return run_colorizer(
+            &config,
+            &profile,
+            cli.no_color,
+            cli.no_context,
+            !cli.preserve_ansi,
+            None,
+        );
     }
+
+    // Resolve hostname hint: CLI flag wins, then RT_HOSTNAME env var.
+    // Empty string from either source is treated as absent.
+    let hostname_hint = cli
+        .hostname
+        .clone()
+        .or_else(|| std::env::var("RT_HOSTNAME").ok())
+        .filter(|s| !s.is_empty());
 
     // Auto-detect profile from input (default behavior)
     if !cli.no_auto_detect {
-        return run_with_auto_detect(&config, cli.no_color, cli.no_context, !cli.preserve_ansi, cli.quiet);
+        return run_with_auto_detect(
+            &config,
+            cli.no_color,
+            cli.no_context,
+            !cli.preserve_ansi,
+            cli.quiet,
+            hostname_hint.as_deref(),
+        );
     }
 
     // Fallback: use default profile (when --no-auto-detect is set)
@@ -472,7 +500,14 @@ fn run() -> anyhow::Result<()> {
     if !cli.quiet {
         eprintln!("Using default profile: {}", default_name);
     }
-    run_colorizer(&config, &profile, cli.no_color, cli.no_context, !cli.preserve_ansi, None)
+    run_colorizer(
+        &config,
+        &profile,
+        cli.no_color,
+        cli.no_context,
+        !cli.preserve_ansi,
+        None,
+    )
 }
 
 /// Run with auto-detection: buffer initial input, detect profile, then process
@@ -482,6 +517,7 @@ fn run_with_auto_detect(
     no_context: bool,
     strip_ansi: bool,
     quiet: bool,
+    hostname_hint: Option<&str>,
 ) -> anyhow::Result<()> {
     use io::Read;
 
@@ -506,8 +542,8 @@ fn run_with_auto_detect(
     // Convert buffer to string for detection
     let initial_text = String::from_utf8_lossy(&buffer);
 
-    // Detect profile from content
-    let detected_profile = config.detect_profile(&initial_text);
+    // Detect profile from content (with optional hostname hint)
+    let detected_profile = config.detect_profile(&initial_text, hostname_hint);
 
     // Auto-detect Linux/Unix servers and preserve ANSI for interactive shells.
     // This only runs on the initial buffer (<=4KB in the first 100ms); process_stdin
@@ -538,9 +574,9 @@ fn run_with_auto_detect(
                  Use --profile <name> to specify explicitly."
             )
         })?;
-        let prof = config.get_profile(default_name).ok_or_else(|| {
-            anyhow::anyhow!("Default profile '{}' not found", default_name)
-        })?;
+        let prof = config
+            .get_profile(default_name)
+            .ok_or_else(|| anyhow::anyhow!("Default profile '{}' not found", default_name))?;
         // Suppressed when the initial buffer already looks like a shell (rt is
         // a pass-through on those and mid-stream Linux detection can still
         // flip us), or when --quiet is explicitly set. A user who asks for
@@ -559,7 +595,14 @@ fn run_with_auto_detect(
     drop(stdin_handle); // Release lock before running colorizer
 
     // Run colorizer with buffered data
-    run_colorizer(config, &profile, no_color, no_context, effective_strip_ansi, Some(buffer))
+    run_colorizer(
+        config,
+        &profile,
+        no_color,
+        no_context,
+        effective_strip_ansi,
+        Some(buffer),
+    )
 }
 
 /// Helper function to process and output a single chunk
@@ -658,7 +701,11 @@ fn run_colorizer(
     strip_ansi: bool,
     initial_data: Option<Vec<u8>>,
 ) -> anyhow::Result<()> {
-    let color_choice = if no_color { ColorChoice::Never } else { ColorChoice::Always };
+    let color_choice = if no_color {
+        ColorChoice::Never
+    } else {
+        ColorChoice::Always
+    };
     let mut stdout = StandardStream::stdout(color_choice);
 
     // Compile patterns once at startup
@@ -666,7 +713,14 @@ fn run_colorizer(
     let mut context_engine = setup_context_engine(profile, no_context);
 
     // Process stdin in chunks (with optional initial data from auto-detect)
-    process_stdin(&mut stdout, &compiled_patterns, &mut context_engine, config, strip_ansi, initial_data)
+    process_stdin(
+        &mut stdout,
+        &compiled_patterns,
+        &mut context_engine,
+        config,
+        strip_ansi,
+        initial_data,
+    )
 }
 
 /// Setup context engine if enabled
@@ -677,7 +731,10 @@ fn setup_context_engine(profile: &config::Profile, no_context: bool) -> Option<C
     let mut engine = ContextEngine::new();
     for context in &profile.contexts {
         if let Err(e) = engine.add_context(context) {
-            eprintln!("Warning: Failed to compile context '{}': {}", context.name, e);
+            eprintln!(
+                "Warning: Failed to compile context '{}': {}",
+                context.name, e
+            );
         }
     }
     Some(engine)
@@ -758,7 +815,15 @@ fn process_stdin(
                 if !buffer.is_empty() {
                     maybe_flip_to_linux_mode(&buffer, &mut strip_ansi);
                     let text = String::from_utf8_lossy(&buffer);
-                    process_and_output_chunk(&text, "", stdout, patterns, context_engine, config, strip_ansi)?;
+                    process_and_output_chunk(
+                        &text,
+                        "",
+                        stdout,
+                        patterns,
+                        context_engine,
+                        config,
+                        strip_ansi,
+                    )?;
                 }
                 break;
             }
@@ -769,7 +834,15 @@ fn process_stdin(
                 if !buffer.is_empty() {
                     maybe_flip_to_linux_mode(&buffer, &mut strip_ansi);
                     let text = String::from_utf8_lossy(&buffer);
-                    process_and_output_chunk(&text, "", stdout, patterns, context_engine, config, strip_ansi)?;
+                    process_and_output_chunk(
+                        &text,
+                        "",
+                        stdout,
+                        patterns,
+                        context_engine,
+                        config,
+                        strip_ansi,
+                    )?;
                     buffer.clear();
                     io::stdout().flush()?;
                 }
@@ -843,7 +916,15 @@ fn process_complete_lines(
         let sep_bytes = &buffer[mat.start()..mat.end()];
         let data = String::from_utf8_lossy(data_bytes);
         let sep = String::from_utf8_lossy(sep_bytes);
-        process_and_output_chunk(&data, &sep, stdout, patterns, context_engine, config, strip_ansi)?;
+        process_and_output_chunk(
+            &data,
+            &sep,
+            stdout,
+            patterns,
+            context_engine,
+            config,
+            strip_ansi,
+        )?;
         cursor = mat.end();
     }
     Ok(cursor)
@@ -1016,7 +1097,10 @@ ssh() {{ {} "$@" | rt; }}"#,
         || rc_content.contains("| rt }");
 
     if already_installed {
-        eprintln!("Shell integration already detected in {}", rc_file.display());
+        eprintln!(
+            "Shell integration already detected in {}",
+            rc_file.display()
+        );
         eprintln!("\nIf you want to reinstall, remove the existing ssh() function first.");
         return Ok(());
     }
@@ -1122,14 +1206,19 @@ fn check_shell_integration_hint(config_path: &Path) {
         "bash" => {
             let bashrc = home.join(".bashrc");
             let bash_profile = home.join(".bash_profile");
-            if bashrc.exists() { bashrc } else { bash_profile }
+            if bashrc.exists() {
+                bashrc
+            } else {
+                bash_profile
+            }
         }
         _ => return, // Unsupported shell, skip hint
     };
 
     // Check if already installed
     let rc_content = std::fs::read_to_string(&rc_file).unwrap_or_default();
-    if rc_content.contains("| rt;") || rc_content.contains("|rt;") || rc_content.contains("| rt }") {
+    if rc_content.contains("| rt;") || rc_content.contains("|rt;") || rc_content.contains("| rt }")
+    {
         return; // Already installed
     }
 
@@ -1158,9 +1247,13 @@ fn check_shell_integration_hint(config_path: &Path) {
 /// merge/replace/keep otherwise. Always saves a `config.toml.user` backup
 /// before destructive writes. With `--force`, skips the prompt. See
 /// SECURITY.md for the full list of filesystem side effects.
-fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) -> anyhow::Result<()> {
-    let embedded_version = versions::parse_config_version(embedded_config)
-        .unwrap_or_else(|| "unknown".to_string());
+fn handle_update_config(
+    config_path: &Path,
+    embedded_config: &str,
+    force: bool,
+) -> anyhow::Result<()> {
+    let embedded_version =
+        versions::parse_config_version(embedded_config).unwrap_or_else(|| "unknown".to_string());
 
     // Ensure parent directory exists
     if let Some(parent) = config_path.parent() {
@@ -1172,15 +1265,19 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
     if !config_path.exists() {
         std::fs::write(config_path, embedded_config)
             .with_context(|| format!("writing new config to {}", config_path.display()))?;
-        eprintln!("Created config v{} at {}", embedded_version, config_path.display());
+        eprintln!(
+            "Created config v{} at {}",
+            embedded_version,
+            config_path.display()
+        );
         return Ok(());
     }
 
     // Read user's current config
     let user_config = std::fs::read_to_string(config_path)
         .with_context(|| format!("reading user config {}", config_path.display()))?;
-    let user_version = versions::parse_config_version(&user_config)
-        .unwrap_or_else(|| "unknown".to_string());
+    let user_version =
+        versions::parse_config_version(&user_config).unwrap_or_else(|| "unknown".to_string());
 
     // Handle --force: backup and replace without prompting
     if force {
@@ -1189,7 +1286,11 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
             .with_context(|| format!("backing up config to {}", backup_path.display()))?;
         std::fs::write(config_path, embedded_config)
             .with_context(|| format!("writing config to {}", config_path.display()))?;
-        eprintln!("Forced update to v{}. Backup saved: {}", embedded_version, backup_path.display());
+        eprintln!(
+            "Forced update to v{}. Backup saved: {}",
+            embedded_version,
+            backup_path.display()
+        );
         clear_version_warning(config_path);
         return Ok(());
     }
@@ -1198,14 +1299,20 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
     if let Some(matched_version) = versions::is_stock_config(&user_config) {
         // User has unmodified stock config
         if matched_version == embedded_version {
-            eprintln!("Config is already at v{} (no update needed)", embedded_version);
+            eprintln!(
+                "Config is already at v{} (no update needed)",
+                embedded_version
+            );
             return Ok(());
         }
 
         // Safe to auto-update (stock -> stock)
         std::fs::write(config_path, embedded_config)
             .with_context(|| format!("writing config to {}", config_path.display()))?;
-        eprintln!("Updated config from v{} to v{}", matched_version, embedded_version);
+        eprintln!(
+            "Updated config from v{} to v{}",
+            matched_version, embedded_version
+        );
         clear_version_warning(config_path);
         return Ok(());
     }
@@ -1250,9 +1357,12 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
             io::stdin().lock().read_line(&mut input)?;
             if input.trim().to_lowercase() == "y" {
                 let merged = merge_configs(&user_config, embedded_config)?;
-                std::fs::write(config_path, &merged)
-                    .with_context(|| format!("writing merged config to {}", config_path.display()))?;
-                eprintln!("Merged config saved. Your custom changes preserved, new patterns added.");
+                std::fs::write(config_path, &merged).with_context(|| {
+                    format!("writing merged config to {}", config_path.display())
+                })?;
+                eprintln!(
+                    "Merged config saved. Your custom changes preserved, new patterns added."
+                );
                 clear_version_warning(config_path);
             } else {
                 eprintln!("Cancelled. Keeping your current config.");
@@ -1267,7 +1377,11 @@ fn handle_update_config(config_path: &Path, embedded_config: &str, force: bool) 
             if input.trim().to_lowercase() == "y" {
                 std::fs::write(config_path, embedded_config)
                     .with_context(|| format!("writing config to {}", config_path.display()))?;
-                eprintln!("Replaced with v{}. Your backup: {}", embedded_version, backup_path.display());
+                eprintln!(
+                    "Replaced with v{}. Your backup: {}",
+                    embedded_version,
+                    backup_path.display()
+                );
                 clear_version_warning(config_path);
             } else {
                 eprintln!("Cancelled. Keeping your current config.");
@@ -1317,7 +1431,10 @@ fn show_config_diff(user_config: &str, stock_config: &str) {
             eprint!("{}{}", sign, change);
             shown_lines += 1;
             if shown_lines >= MAX_DIFF_LINES {
-                eprintln!("\n... (diff truncated, {} more lines)", diff.iter_all_changes().count() - shown_lines);
+                eprintln!(
+                    "\n... (diff truncated, {} more lines)",
+                    diff.iter_all_changes().count() - shown_lines
+                );
                 break;
             }
         }
@@ -1332,15 +1449,17 @@ fn show_config_diff(user_config: &str, stock_config: &str) {
 fn merge_configs(user_config: &str, new_stock: &str) -> anyhow::Result<String> {
     use toml_edit::DocumentMut;
 
-    let mut user_doc: DocumentMut = user_config.parse()
+    let mut user_doc: DocumentMut = user_config
+        .parse()
         .map_err(|e| anyhow::anyhow!("Failed to parse user config: {}", e))?;
-    let new_doc: DocumentMut = new_stock.parse()
+    let new_doc: DocumentMut = new_stock
+        .parse()
         .map_err(|e| anyhow::anyhow!("Failed to parse stock config: {}", e))?;
 
     // Update the version header in the merged result
     // We'll prepend the new header to the user's config
-    let new_version = versions::parse_config_version(new_stock)
-        .unwrap_or_else(|| "unknown".to_string());
+    let new_version =
+        versions::parse_config_version(new_stock).unwrap_or_else(|| "unknown".to_string());
 
     // Merge strategy:
     // 1. For top-level keys in new_stock that don't exist in user: ADD them
@@ -1356,18 +1475,16 @@ fn merge_configs(user_config: &str, new_stock: &str) -> anyhow::Result<String> {
             eprintln!("  + Added new section: [{}]", key);
         } else if key == "profiles" {
             // Special handling for profiles - merge nested tables
-            if let (Some(user_profiles), Some(new_profiles)) = (
-                user_doc[key].as_table_mut(),
-                new_value.as_table(),
-            ) {
+            if let (Some(user_profiles), Some(new_profiles)) =
+                (user_doc[key].as_table_mut(), new_value.as_table())
+            {
                 merge_profiles_table(user_profiles, new_profiles);
             }
         } else if key == "hostname_prefixes" {
             // Merge hostname prefixes
-            if let (Some(user_prefixes), Some(new_prefixes)) = (
-                user_doc[key].as_table_mut(),
-                new_value.as_table(),
-            ) {
+            if let (Some(user_prefixes), Some(new_prefixes)) =
+                (user_doc[key].as_table_mut(), new_value.as_table())
+            {
                 for (prefix_key, prefix_value) in new_prefixes.iter() {
                     if !user_prefixes.contains_key(prefix_key) {
                         user_prefixes[prefix_key] = prefix_value.clone();
@@ -1388,7 +1505,9 @@ fn merge_configs(user_config: &str, new_stock: &str) -> anyhow::Result<String> {
 
     // Use regex to match the entire version line including any existing date(s)
     let version_line_regex = regex::Regex::new(r"# Config version: [^\n]+").unwrap();
-    result = version_line_regex.replace(&result, new_line.as_str()).to_string();
+    result = version_line_regex
+        .replace(&result, new_line.as_str())
+        .to_string();
 
     Ok(result)
 }
@@ -1417,12 +1536,22 @@ fn merge_profile_patterns(
     new_profile: &toml_edit::Table,
 ) {
     // Get or create patterns array
-    if let Some(new_patterns) = new_profile.get("patterns").and_then(|p| p.as_array_of_tables()) {
-        if let Some(user_patterns) = user_profile.get_mut("patterns").and_then(|p| p.as_array_of_tables_mut()) {
+    if let Some(new_patterns) = new_profile
+        .get("patterns")
+        .and_then(|p| p.as_array_of_tables())
+    {
+        if let Some(user_patterns) = user_profile
+            .get_mut("patterns")
+            .and_then(|p| p.as_array_of_tables_mut())
+        {
             // Collect existing pattern descriptions for dedup
             let existing_descriptions: std::collections::HashSet<String> = user_patterns
                 .iter()
-                .filter_map(|p| p.get("description").and_then(|d| d.as_str()).map(String::from))
+                .filter_map(|p| {
+                    p.get("description")
+                        .and_then(|d| d.as_str())
+                        .map(String::from)
+                })
                 .collect();
 
             // Add new patterns that don't exist
@@ -1436,7 +1565,10 @@ fn merge_profile_patterns(
                 }
             }
             if added > 0 {
-                eprintln!("  + Added {} new patterns to [profiles.{}]", added, profile_name);
+                eprintln!(
+                    "  + Added {} new patterns to [profiles.{}]",
+                    added, profile_name
+                );
             }
         } else {
             // User doesn't have patterns array - add the whole thing
@@ -1446,8 +1578,14 @@ fn merge_profile_patterns(
     }
 
     // Merge contexts similarly
-    if let Some(new_contexts) = new_profile.get("contexts").and_then(|c| c.as_array_of_tables()) {
-        if let Some(user_contexts) = user_profile.get_mut("contexts").and_then(|c| c.as_array_of_tables_mut()) {
+    if let Some(new_contexts) = new_profile
+        .get("contexts")
+        .and_then(|c| c.as_array_of_tables())
+    {
+        if let Some(user_contexts) = user_profile
+            .get_mut("contexts")
+            .and_then(|c| c.as_array_of_tables_mut())
+        {
             let existing_names: std::collections::HashSet<String> = user_contexts
                 .iter()
                 .filter_map(|c| c.get("name").and_then(|n| n.as_str()).map(String::from))
@@ -1463,7 +1601,10 @@ fn merge_profile_patterns(
                 }
             }
             if added > 0 {
-                eprintln!("  + Added {} new contexts to [profiles.{}]", added, profile_name);
+                eprintln!(
+                    "  + Added {} new contexts to [profiles.{}]",
+                    added, profile_name
+                );
             }
         } else if new_profile.contains_key("contexts") {
             user_profile["contexts"] = new_profile["contexts"].clone();
@@ -1538,7 +1679,7 @@ fn check_config_version_warning(config_path: &Path, embedded_config: &str) {
     use std::cmp::Ordering;
     match versions::compare_versions(&user_version, &embedded_version) {
         Ordering::Equal | Ordering::Greater => return, // Same or newer, no warning
-        Ordering::Less => {} // Older, continue to warn
+        Ordering::Less => {}                           // Older, continue to warn
     }
 
     // Check if we've already warned about this version
