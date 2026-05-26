@@ -14,16 +14,50 @@ pub static KNOWN_HASHES: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     // Historical versions - add hash when releasing
     // Format: m.insert("version", "blake3_hash");
     // Note: Config version 0.2.12 was shipped with crates.io package 0.2.13
-    m.insert("0.2.12", "eb6f66093568cf23d03c304e49b3e1b054e939a6f2a8610596d652ed9deabe96");
-    m.insert("0.2.14", "63bd0ba42f2291a905d0ba6b7df910e25263ef59628cc4a45eca5e8cbdaa3ceb");
-    m.insert("0.2.15", "a654bca0bcf2f54daeb422abfb1b621426c72e1cb644ec2f374888f0c316a8ce");
-    m.insert("0.2.16", "37326cf0d09c93ffe1bd6f02bee7cf56064a25a57b5f9079fc483287aeb77e1d");
-    m.insert("0.2.17", "abf29875ef811b6d24b4fd64eb7634806b45722a7c16b5d689059fded4fa8b10");
-    m.insert("0.2.20", "4397fa9d943d31f0290312d069e6e69baa6562817ca865be4f07dd046e428c3a");
-    m.insert("0.2.22", "9f2df232a06971aefb1876684ec31de578b9c7e7aae4a3076021f9cbdd0a19d1");
-    m.insert("0.2.23", "47c63d8c537ed760b5604b195f6d76a144cbc4eeb9f8f68453cde88205f2d5fe");
-    m.insert("0.2.24", "68cce0f342b4f1946405bcf9c8225629334c3e47ea62b0dfcd1fc274020d8e93");
-    m.insert("0.2.25", "06a5093c51bbc3a5612c0e45a49a8dcc632449430aee81360e1a557bd3285c13");
+    m.insert(
+        "0.2.12",
+        "eb6f66093568cf23d03c304e49b3e1b054e939a6f2a8610596d652ed9deabe96",
+    );
+    m.insert(
+        "0.2.14",
+        "63bd0ba42f2291a905d0ba6b7df910e25263ef59628cc4a45eca5e8cbdaa3ceb",
+    );
+    m.insert(
+        "0.2.15",
+        "a654bca0bcf2f54daeb422abfb1b621426c72e1cb644ec2f374888f0c316a8ce",
+    );
+    m.insert(
+        "0.2.16",
+        "37326cf0d09c93ffe1bd6f02bee7cf56064a25a57b5f9079fc483287aeb77e1d",
+    );
+    m.insert(
+        "0.2.17",
+        "abf29875ef811b6d24b4fd64eb7634806b45722a7c16b5d689059fded4fa8b10",
+    );
+    m.insert(
+        "0.2.20",
+        "4397fa9d943d31f0290312d069e6e69baa6562817ca865be4f07dd046e428c3a",
+    );
+    m.insert(
+        "0.2.22",
+        "9f2df232a06971aefb1876684ec31de578b9c7e7aae4a3076021f9cbdd0a19d1",
+    );
+    m.insert(
+        "0.2.23",
+        "47c63d8c537ed760b5604b195f6d76a144cbc4eeb9f8f68453cde88205f2d5fe",
+    );
+    m.insert(
+        "0.2.24",
+        "68cce0f342b4f1946405bcf9c8225629334c3e47ea62b0dfcd1fc274020d8e93",
+    );
+    m.insert(
+        "0.2.25",
+        "06a5093c51bbc3a5612c0e45a49a8dcc632449430aee81360e1a557bd3285c13",
+    );
+    m.insert(
+        "0.2.26",
+        "f96ae2f928b7a3471d0576577cba5020e83ee9e47e1b77a3e72ceb6f93691ed2",
+    );
     m
 });
 
@@ -90,11 +124,7 @@ pub fn is_stock_config(content: &str) -> Option<&'static str> {
 /// Returns: Less if a < b, Equal if a == b, Greater if a > b
 /// Missing version parts are treated as 0 (e.g., "1.0" == "1.0.0")
 pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|s| s.parse().ok())
-            .collect()
-    };
+    let parse = |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse().ok()).collect() };
 
     let va = parse(a);
     let vb = parse(b);
@@ -129,9 +159,8 @@ mod tests {
     #[test]
     fn embedded_config_matches_registered_hash() {
         const EMBEDDED: &str = include_str!("../config.toml");
-        let version = parse_config_version(EMBEDDED).expect(
-            "embedded config.toml must have a '# Config version: X.Y.Z' header line",
-        );
+        let version = parse_config_version(EMBEDDED)
+            .expect("embedded config.toml must have a '# Config version: X.Y.Z' header line");
         let actual_hash = hash_config(EMBEDDED);
         let registered_hash = KNOWN_HASHES.get(version.as_str()).unwrap_or_else(|| {
             panic!(

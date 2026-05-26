@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "rainbowterm"
-version = "0.2.25"
+version = "0.2.26"
 dependencies = [
  "anyhow",
  "blake3",

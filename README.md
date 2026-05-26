@@ -79,6 +79,15 @@ ssh router | rt          # Auto-detects from banner/prompt
 cat output.txt | rt      # Auto-detects from content
 ```
 
+For non-interactive `ssh host "show ..."` whose output contains no banner or
+prompt, pass the hostname explicitly so `[hostname_prefixes]` rules can fire:
+
+```bash
+ssh js0391-mdf-2-b "show version" | rt --hostname js0391-mdf-2-b
+# or, for shell wrappers:
+ssh js0391-mdf-2-b "show version" | RT_HOSTNAME=js0391-mdf-2-b rt
+```
+
 ### 🔧 Network Protocol Support
 
 #### Juniper JunOS
@@ -531,7 +540,7 @@ See [SECURITY.md](SECURITY.md) for the trust model, ReDoS posture, and a complet
 - [x] Public release to crates.io (v0.1.0)
 - [x] v0.2.0 release with dual spectrum and screenshots
 - [x] v0.2.3 improved documentation for both platforms
-- [x] Unit test suite (37 tests across config, matching, versions, UTF-8 handling, shell detection)
+- [x] Unit test suite (39 tests across config, matching, versions, UTF-8 handling, shell detection, hostname hints)
 - [x] Integration test suite (Juniper, Cisco profiles)
 - [x] Versa SD-WAN profile (v0.2.12)
 - [x] Automatic profile detection from content/banners
@@ -540,6 +549,7 @@ See [SECURITY.md](SECURITY.md) for the trust model, ReDoS posture, and a complet
 - [x] Shell completions (`rt completions <shell>`)
 - [x] Performance benchmarks (`cargo bench`, criterion-based)
 - [x] Mid-stream Linux-shell detection for interactive SSH on jumpboxes (v0.2.25)
+- [x] `--hostname` / `RT_HOSTNAME` hint for non-interactive `ssh host "show ..."` (v0.2.26)
 - [ ] Complete Arista EOS profile implementation
 - [ ] Additional vendor profiles (Palo Alto, F5, etc.)
 - [ ] PTY wrap mode for serial console access (see [Future Development](#-future-development))

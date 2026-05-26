@@ -5,6 +5,27 @@ All notable changes to RainbowTerm will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.26] - 2026-05-26
+
+### Fixed
+- **Hostname-prefix auto-detect missed non-interactive command output** - The
+  output of `ssh host "show ddos-protection ..."` (or any non-interactive
+  remote command) typically contains no banner and no prompt — only the
+  command's output. `[hostname_prefixes]` rules in `config.toml` are
+  text-content based, so they had nothing to match against and detection
+  fell back to `base`. Detection now also takes a hostname hint from
+  `--hostname <HOST>` or the `RT_HOSTNAME` environment variable, so
+  wrappers like `ossh js0391-mdf-2-b "show ..."` correctly auto-detect
+  as `juniper`.
+
+### Added
+- **`--hostname <HOST>` flag** - Pass the target hostname into auto-detection
+  explicitly. Useful for non-interactive SSH command output and any other
+  case where the output stream itself contains no hostname signal.
+- **`RT_HOSTNAME` environment variable** - Same hint as `--hostname`. Picked
+  up automatically by the rt pipeline; useful for shell wrappers that
+  pre-resolve the target hostname (e.g. `ossh`, `opssh`).
+
 ## [0.2.25] - 2026-05-13
 
 ### Fixed
